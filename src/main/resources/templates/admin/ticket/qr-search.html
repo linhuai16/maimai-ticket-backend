@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('二维码查看')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="qrSearchPage">
+            <section class="page-heading"><div><p class="breadcrumb">票务管理 / 二维码查看</p><h2>二维码查看</h2><p>通过电子票 ID、票号、订单号或观演人检索电子票，再进入二维码详情页。</p></div></section>
+            <section class="panel filter-panel">
+                <form id="qrSearchForm" class="check-input-row">
+                    <label class="field"><span>电子票关键词</span><input id="qrKeyword" type="search" required placeholder="电子票 ID、票号、订单号、观演人或演出名称"></label>
+                    <button class="button button-primary" type="submit">查询电子票</button>
+                </form>
+            </section>
+            <section class="panel table-panel">
+                <div class="panel-header"><div><h3>查询结果</h3><p id="qrSearchSummary">请输入关键词查询</p></div></div>
+                <div class="table-wrap"><table class="data-table"><thead><tr><th>电子票</th><th>订单</th><th>演出 / 场次</th><th>观演人</th><th>状态</th><th class="align-right">操作</th></tr></thead><tbody id="qrSearchBody"><tr><td colspan="6"><div class="table-empty">尚未查询</div></td></tr></tbody></table></div>
+            </section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script><script th:src="@{/admin/js/request.js}"></script><script th:src="@{/admin/js/qr-search.js}"></script>
+</body>
+</html>

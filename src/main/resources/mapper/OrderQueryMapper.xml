@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.OrderQueryMapper">
+
+    <sql id="OrderTabCondition">
+        <choose>
+            <when test="tab == 'WAIT_PAY'">
+                AND o.order_status = 'WAIT_PAY'
+            </when>
+            <when test="tab == 'WAIT_USE'">
+                AND o.order_status = 'WAIT_USE'
+            </when>
+            <when test="tab == 'FINISHED'">
+                AND o.order_status = 'FINISHED'
+            </when>
+            <otherwise>
+            </otherwise>
+        </choose>
+    </sql>
+
+    <select id="countOrders" resultType="int">
+        SELECT COUNT(*)
+        FROM ticket_order o
+        WHERE o.user_id = #{userId}
+        <include refid="OrderTabCondition" />
+    </select>
+
+    <select id="selectOrderList"
+            resultType="com.example.maimaibackend.vo.order.OrderListItemVO">
+        SELECT
+            o.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.order_status AS orderStatus,
+            o.project_id AS projectId,
+            o.session_id AS sessionId,
+            p.title AS title,
+            p.poster_url AS posterUrl,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.start_time AS startTime,
+            v.venue_name AS venueName,
+            o.delivery_type AS deliveryType,
+            (
+                SELECT q.delivery_mode
+                FROM ticket_source_order_bridge b
+                JOIN ticket_source_order_quote q ON q.quote_id = b.quote_id
+                WHERE b.order_id = o.order_id
+                LIMIT 1
+            ) AS deliveryMode,
+            item_stat.skuSummary AS skuSummary,
+            item_stat.totalQuantity AS totalQuantity,
+            o.pay_amount AS payAmount,
+            o.pay_expire_time AS payExpireTime,
+            o.create_time AS createTime,
+            COALESCE(ticket_stat.ticket_count, 0) AS ticketCount,
+            (
+                SELECT et2.ticket_id
+                FROM electronic_ticket et2
+                WHERE et2.order_id = o.order_id
+                ORDER BY
+                    CASE et2.ticket_status
+                        WHEN 'UNUSED' THEN 1
+                        WHEN 'GENERATING' THEN 2
+                        WHEN 'ERROR' THEN 3
+                        WHEN 'CHECKED' THEN 4
+                        WHEN 'EXPIRED' THEN 5
+                        ELSE 9
+                    END,
+                    et2.ticket_id ASC
+                LIMIT 1
+            ) AS defaultTicketId,
+            (
+                SELECT et3.ticket_status
+                FROM electronic_ticket et3
+                WHERE et3.order_id = o.order_id
+                ORDER BY
+                    CASE et3.ticket_status
+                        WHEN 'UNUSED' THEN 1
+                        WHEN 'GENERATING' THEN 2
+                        WHEN 'ERROR' THEN 3
+                        WHEN 'CHECKED' THEN 4
+                        WHEN 'EXPIRED' THEN 5
+                        ELSE 9
+                    END,
+                    et3.ticket_id ASC
+                LIMIT 1
+            ) AS ticketStatus,
+            CASE
+                WHEN o.order_status = 'WAIT_PAY' THEN 'CONTINUE_PAY'
+                WHEN o.order_status = 'WAIT_USE' AND o.delivery_type = 'PAPER_TICKET' THEN 'VIEW_TICKET'
+                WHEN o.order_status = 'WAIT_USE' AND COALESCE(ticket_stat.unused_count, 0) &gt; 0 THEN 'VIEW_TICKET'
+                WHEN o.order_status = 'WAIT_USE'
+                     AND COALESCE(ticket_stat.ticket_count, 0) &gt; 0
+                     AND COALESCE(ticket_stat.generating_count, 0) = COALESCE(ticket_stat.ticket_count, 0) THEN 'TICKETING'
+                ELSE 'NONE'
+            END AS actionType
+        FROM ticket_order o
+        JOIN performance_project p ON p.project_id = o.project_id
+        JOIN performance_session s ON s.session_id = o.session_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        JOIN (
+            SELECT
+                order_id,
+                GROUP_CONCAT(CONCAT(sku_name, ' x', quantity) ORDER BY order_item_id SEPARATOR '；') AS skuSummary,
+                SUM(quantity) AS totalQuantity
+            FROM order_item
+            GROUP BY order_id
+        ) item_stat ON item_stat.order_id = o.order_id
+        LEFT JOIN (
+            SELECT
+                order_id,
+                COUNT(ticket_id) AS ticket_count,
+                SUM(CASE WHEN ticket_status = 'UNUSED' THEN 1 ELSE 0 END) AS unused_count,
+                SUM(CASE WHEN ticket_status = 'GENERATING' THEN 1 ELSE 0 END) AS generating_count,
+                SUM(CASE WHEN ticket_status = 'ERROR' THEN 1 ELSE 0 END) AS error_count
+            FROM electronic_ticket
+            GROUP BY order_id
+        ) ticket_stat ON ticket_stat.order_id = o.order_id
+        WHERE o.user_id = #{userId}
+        <include refid="OrderTabCondition" />
+        ORDER BY o.create_time DESC, o.order_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectOrderDetailBase"
+            resultType="com.example.maimaibackend.vo.order.OrderDetailVO">
+        SELECT
+            o.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.user_id AS userId,
+            o.order_status AS orderStatus,
+            o.project_id AS projectId,
+            o.session_id AS sessionId,
+            p.title AS title,
+            p.poster_url AS posterUrl,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.start_time AS startTime,
+            s.end_time AS endTime,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            o.delivery_type AS deliveryType,
+            (
+                SELECT q.delivery_mode
+                FROM ticket_source_order_bridge b
+                JOIN ticket_source_order_quote q ON q.quote_id = b.quote_id
+                WHERE b.order_id = o.order_id
+                LIMIT 1
+            ) AS deliveryMode,
+            o.ticket_amount AS ticketAmount,
+            o.service_fee_amount AS serviceFeeAmount,
+            o.delivery_fee_amount AS deliveryFeeAmount,
+            o.discount_amount AS discountAmount,
+            o.total_amount AS totalAmount,
+            o.pay_amount AS payAmount,
+            o.pay_method AS payMethod,
+            o.pay_expire_time AS payExpireTime,
+            o.pay_time AS payTime,
+            o.cancel_time AS cancelTime,
+            o.ticket_issued_time AS ticketIssuedTime,
+            o.finish_time AS finishTime,
+            o.create_time AS createTime,
+            o.update_time AS updateTime,
+            (
+                SELECT et2.ticket_id
+                FROM electronic_ticket et2
+                WHERE et2.order_id = o.order_id
+                ORDER BY
+                    CASE et2.ticket_status
+                        WHEN 'UNUSED' THEN 1
+                        WHEN 'GENERATING' THEN 2
+                        WHEN 'ERROR' THEN 3
+                        WHEN 'CHECKED' THEN 4
+                        WHEN 'EXPIRED' THEN 5
+                        ELSE 9
+                    END,
+                    et2.ticket_id ASC
+                LIMIT 1
+            ) AS defaultTicketId,
+            CASE
+                WHEN o.order_status = 'WAIT_USE' AND o.delivery_type = 'PAPER_TICKET' THEN 'VIEW_TICKET'
+                WHEN o.order_status = 'WAIT_USE'
+                     AND EXISTS (SELECT 1 FROM electronic_ticket et WHERE et.order_id = o.order_id AND et.ticket_status = 'UNUSED') THEN 'VIEW_TICKET'
+                WHEN o.order_status = 'WAIT_USE'
+                     AND EXISTS (SELECT 1 FROM electronic_ticket et WHERE et.order_id = o.order_id AND et.ticket_status = 'GENERATING') THEN 'TICKETING'
+                ELSE 'NONE'
+            END AS ticketActionType
+        FROM ticket_order o
+        JOIN performance_project p ON p.project_id = o.project_id
+        JOIN performance_session s ON s.session_id = o.session_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        WHERE o.order_id = #{orderId}
+          AND o.user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <select id="selectOrderDetailItems"
+            resultType="com.example.maimaibackend.vo.order.OrderDetailItemVO">
+        SELECT
+            order_item_id AS orderItemId,
+            order_id AS orderId,
+            sku_id AS skuId,
+            sku_name AS skuName,
+            unit_price AS unitPrice,
+            quantity AS quantity,
+            subtotal_amount AS subtotalAmount
+        FROM order_item
+        WHERE order_id = #{orderId}
+        ORDER BY order_item_id ASC
+    </select>
+
+    <select id="selectOrderAudiences"
+            resultType="com.example.maimaibackend.vo.order.OrderAudienceVO">
+        SELECT
+            order_audience_id AS orderAudienceId,
+            order_id AS orderId,
+            real_name AS realName,
+            certificate_type AS certificateType,
+            certificate_no AS certificateNo,
+            phone AS phone
+        FROM order_audience
+        WHERE order_id = #{orderId}
+        ORDER BY order_audience_id ASC
+    </select>
+
+    <select id="selectOrderAddress"
+            resultType="com.example.maimaibackend.vo.order.OrderAddressVO">
+        SELECT
+            order_address_id AS orderAddressId,
+            order_id AS orderId,
+            receiver_name AS receiverName,
+            receiver_phone AS receiverPhone,
+            province AS province,
+            city AS city,
+            district AS district,
+            detail_address AS detailAddress,
+            CONCAT(province, city, district, detail_address) AS fullAddress
+        FROM order_address
+        WHERE order_id = #{orderId}
+        LIMIT 1
+    </select>
+
+    <select id="selectOrderTickets"
+            resultType="com.example.maimaibackend.vo.order.OrderTicketVO">
+        SELECT
+            et.ticket_id AS ticketId,
+            et.ticket_no AS ticketNo,
+            et.order_id AS orderId,
+            et.order_item_id AS orderItemId,
+            et.order_audience_id AS orderAudienceId,
+            et.ticket_status AS ticketStatus,
+            et.qr_code_value AS qrCodeValue,
+            et.seat_info AS seatInfo,
+            et.generate_time AS generateTime,
+            et.check_time AS checkTime,
+            et.expire_time AS expireTime,
+            et.abnormal_reason AS abnormalReason,
+            oa.real_name AS audienceName
+        FROM electronic_ticket et
+        LEFT JOIN order_audience oa ON oa.order_audience_id = et.order_audience_id
+        WHERE et.order_id = #{orderId}
+        ORDER BY
+            CASE et.ticket_status
+                WHEN 'UNUSED' THEN 1
+                WHEN 'GENERATING' THEN 2
+                WHEN 'ERROR' THEN 3
+                WHEN 'CHECKED' THEN 4
+                WHEN 'EXPIRED' THEN 5
+                ELSE 9
+            END,
+            et.ticket_id ASC
+    </select>
+
+    <select id="selectOrderRefundRecord"
+            resultType="com.example.maimaibackend.vo.order.OrderRefundRecordVO">
+        SELECT
+            refund_id AS refundId,
+            refund_no AS refundNo,
+            order_id AS orderId,
+            refund_type_snapshot AS refundTypeSnapshot,
+            fee_rate_snapshot AS feeRateSnapshot,
+            apply_time AS applyTime,
+            reason AS reason,
+            refund_amount AS refundAmount,
+            fee_amount AS feeAmount,
+            refund_status AS refundStatus,
+            refund_time AS refundTime,
+            fail_reason AS failReason
+        FROM refund_record
+        WHERE order_id = #{orderId}
+        LIMIT 1
+    </select>
+
+</mapper>

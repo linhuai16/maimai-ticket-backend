@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('订单管理')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="orderManagementPage">
+            <section class="page-heading">
+                <div>
+                    <p class="breadcrumb">交易管理 / 订单管理</p>
+                    <h2>订单管理</h2>
+                    <p>查询订单、查看订单快照、电子票与退款状态。订单状态只能通过支付、取消、退款和检票等业务流程变更。</p>
+                </div>
+                <button class="button button-ghost" id="refreshOrderButton" type="button">刷新数据</button>
+            </section>
+
+            <section class="panel filter-panel">
+                <form id="orderFilterForm" class="filter-grid transaction-filter-grid">
+                    <label class="field compact filter-span-two">
+                        <span>关键词</span>
+                        <input id="orderKeyword" type="search" maxlength="100" placeholder="订单号、手机号、昵称、演出标题">
+                    </label>
+                    <label class="field compact">
+                        <span>订单状态</span>
+                        <select id="orderStatusFilter">
+                            <option value="">全部状态</option>
+                            <option value="WAIT_PAY">待支付</option>
+                            <option value="WAIT_USE">待使用</option>
+                            <option value="FINISHED">已完成</option>
+                            <option value="REFUNDING">退款中</option>
+                            <option value="REFUND_SUCCESS">退款成功</option>
+                            <option value="CANCELED">已取消</option>
+                        </select>
+                    </label>
+                    <label class="field compact">
+                        <span>用户 ID</span>
+                        <input id="orderUserId" type="number" min="1" step="1" placeholder="可选">
+                    </label>
+                    <label class="field compact">
+                        <span>项目 ID</span>
+                        <input id="orderProjectId" type="number" min="1" step="1" placeholder="可选">
+                    </label>
+                    <label class="field compact">
+                        <span>下单开始日期</span>
+                        <input id="orderDateFrom" type="date">
+                    </label>
+                    <label class="field compact">
+                        <span>下单结束日期</span>
+                        <input id="orderDateTo" type="date">
+                    </label>
+                    <div class="filter-actions transaction-filter-actions">
+                        <button class="button button-primary" type="submit">查询</button>
+                        <button class="button button-secondary" id="resetOrderFilterButton" type="button">重置</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel table-panel">
+                <div class="panel-header table-header">
+                    <div><h3>订单数据</h3><p id="orderTotalText">正在读取...</p></div>
+                    <div class="table-summary-chips" id="orderSummaryChips"></div>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table transaction-table">
+                        <thead>
+                        <tr>
+                            <th>订单</th>
+                            <th>用户</th>
+                            <th>演出 / 场次</th>
+                            <th>金额</th>
+                            <th>资源</th>
+                            <th>状态</th>
+                            <th>下单时间</th>
+                            <th class="align-right">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="orderTableBody">
+                        <tr><td colspan="8"><div class="table-empty">正在加载订单数据...</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <label class="page-size-field">每页
+                        <select id="orderPageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select> 条
+                    </label>
+                    <div id="orderPagination" class="pagination"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="orderDetailModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-xlarge" role="dialog" aria-modal="true" aria-labelledby="orderDetailTitle">
+        <div class="modal-header">
+            <div><p class="modal-eyebrow">ORDER DETAIL</p><h3 id="orderDetailTitle">订单详情</h3></div>
+            <button class="icon-button" id="orderDetailClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body" id="orderDetailContent">
+            <div class="table-empty">正在读取订单详情...</div>
+        </div>
+        <div class="modal-footer modal-footer-split">
+            <div class="modal-footer-links">
+                <button class="button button-danger" id="orderDetailCancelButton" type="button" hidden>取消待支付订单</button>
+                <a class="button button-secondary" id="orderDetailUserLink" href="/admin/users">查看用户</a>
+                <a class="button button-secondary" id="orderDetailRefundLink" href="/admin/refunds" hidden>查看退款</a>
+            </div>
+            <div>
+                <button class="button button-ghost" id="orderDetailCloseButton" type="button">关闭</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/order-management.js}"></script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.RefundMapper">
+
+    <select id="selectRefundApplyBase"
+            resultType="com.example.maimaibackend.dto.refund.RefundApplyBaseDTO">
+        SELECT
+            o.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.user_id AS userId,
+            o.order_status AS orderStatus,
+            o.fulfillment_mode AS fulfillmentMode,
+            o.project_id AS projectId,
+            o.session_id AS sessionId,
+            p.title AS title,
+            p.poster_url AS posterUrl,
+            s.start_time AS startTime,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            oi.sku_name AS skuName,
+            oi.quantity AS quantity,
+            o.pay_amount AS payAmount,
+            rr.refund_rule_id AS refundRuleId,
+            rr.refund_type AS refundType,
+            st.stage_id AS stageId,
+            st.fee_rate AS feeRate,
+            TIMESTAMPDIFF(MINUTE, #{now}, s.start_time) AS beforeStartMinutes
+        FROM ticket_order o
+        JOIN performance_project p ON p.project_id = o.project_id
+        JOIN performance_session s ON s.session_id = o.session_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        JOIN order_item oi ON oi.order_id = o.order_id
+        LEFT JOIN refund_rule rr ON rr.project_id = o.project_id
+        LEFT JOIN refund_rule_stage st ON st.refund_rule_id = rr.refund_rule_id
+            AND TIMESTAMPDIFF(MINUTE, #{now}, s.start_time) <![CDATA[>=]]> st.min_before_start_minutes
+            AND (
+                st.max_before_start_minutes IS NULL
+                OR TIMESTAMPDIFF(MINUTE, #{now}, s.start_time) <![CDATA[<]]> st.max_before_start_minutes
+            )
+        WHERE o.order_id = #{orderId}
+          AND o.user_id = #{userId}
+        ORDER BY st.sort_order ASC
+        LIMIT 1
+    </select>
+
+    <select id="countRefundByOrderId" resultType="int">
+        SELECT COUNT(*)
+        FROM refund_record
+        WHERE order_id = #{orderId}
+    </select>
+
+    <select id="selectRefundProgressByOrder" resultType="com.example.maimaibackend.vo.refund.RefundProgressVO">
+        SELECT
+            r.refund_id AS refundId,
+            r.order_id AS orderId,
+            r.refund_status AS refundStatus,
+            r.refund_amount AS refundAmount,
+            r.fee_amount AS feeAmount,
+            r.apply_time AS applyTime,
+            r.refund_time AS refundTime,
+            r.fail_reason AS failReason
+        FROM refund_record r
+        JOIN ticket_order o ON o.order_id = r.order_id
+        WHERE r.order_id = #{orderId}
+          AND o.user_id = #{userId}
+        ORDER BY r.refund_id DESC
+        LIMIT 1
+    </select>
+
+    <insert id="insertRefundRecord"
+            parameterType="com.example.maimaibackend.dto.refund.RefundRecordInsertDTO"
+            useGeneratedKeys="true"
+            keyProperty="refundId">
+        INSERT INTO refund_record (
+            refund_no,
+            order_id,
+            refund_rule_id,
+            matched_stage_id,
+            refund_type_snapshot,
+            fee_rate_snapshot,
+            apply_time,
+            reason,
+            refund_amount,
+            fee_amount,
+            refund_status,
+            refund_time,
+            fail_reason,
+            update_time
+        ) VALUES (
+            #{refundNo},
+            #{orderId},
+            #{refundRuleId},
+            #{matchedStageId},
+            #{refundTypeSnapshot},
+            #{feeRateSnapshot},
+            #{applyTime},
+            #{reason},
+            #{refundAmount},
+            #{feeAmount},
+            #{refundStatus},
+            NULL,
+            NULL,
+            #{updateTime}
+        )
+    </insert>
+
+    <update id="updateOrderToRefunding">
+        UPDATE ticket_order
+        SET order_status = 'REFUNDING',
+            update_time = #{now}
+        WHERE order_id = #{orderId}
+          AND order_status = 'WAIT_USE'
+    </update>
+
+    <update id="expireTicketsByOrderId">
+        UPDATE electronic_ticket
+        SET refund_hold_status = ticket_status,
+            refund_hold_abnormal_reason = abnormal_reason,
+            ticket_status = 'EXPIRED',
+            expire_time = #{now},
+            abnormal_reason = #{reason},
+            update_time = #{now}
+        WHERE order_id = #{orderId}
+          AND ticket_status IN ('UNUSED', 'GENERATING', 'ERROR')
+          AND refund_hold_status IS NULL
+    </update>
+
+    <select id="selectMockRefundBase"
+            resultType="com.example.maimaibackend.dto.refund.MockRefundBaseDTO">
+        SELECT
+            r.refund_id AS refundId,
+            r.refund_no AS refundNo,
+            r.order_id AS orderId,
+            o.user_id AS userId,
+            o.order_status AS orderStatus,
+            o.fulfillment_mode AS fulfillmentMode,
+            r.refund_status AS refundStatus,
+            r.refund_amount AS refundAmount
+        FROM refund_record r
+        JOIN ticket_order o ON o.order_id = r.order_id
+        WHERE r.refund_id = #{refundId}
+        LIMIT 1
+    </select>
+
+    <update id="updateRefundSuccess">
+        UPDATE refund_record
+        SET refund_status = 'REFUND_SUCCESS',
+            refund_time = #{refundTime},
+            update_time = #{refundTime}
+        WHERE refund_id = #{refundId}
+          AND refund_status = 'REFUNDING'
+    </update>
+
+    <update id="updateOrderRefundSuccess">
+        UPDATE ticket_order
+        SET order_status = 'REFUND_SUCCESS',
+            update_time = #{now}
+        WHERE order_id = #{orderId}
+          AND order_status = 'REFUNDING'
+    </update>
+
+    <update id="ensureTicketsExpired">
+        UPDATE electronic_ticket
+        SET ticket_status = 'EXPIRED',
+            qr_code_value = NULL,
+            check_time = NULL,
+            expire_time = CASE WHEN expire_time IS NULL THEN #{now} ELSE expire_time END,
+            abnormal_reason = '退款成功，电子票已失效',
+            refund_hold_status = NULL,
+            refund_hold_abnormal_reason = NULL,
+            update_time = #{now}
+        WHERE order_id = #{orderId}
+          AND (
+              ticket_status IN ('UNUSED', 'GENERATING', 'ERROR')
+              OR (ticket_status = 'EXPIRED' AND refund_hold_status IS NOT NULL)
+          )
+    </update>
+
+</mapper>

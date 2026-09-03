@@ -1,0 +1,122 @@
+server:
+  port: 8080
+  servlet:
+    session:
+      timeout: 2h
+      cookie:
+        http-only: true
+
+spring:
+  application:
+    name: maimai-backend
+
+  thymeleaf:
+    prefix: classpath:/templates/
+    suffix: .html
+    mode: HTML
+    encoding: UTF-8
+    cache: false
+
+  datasource:
+    type: com.alibaba.druid.pool.DruidDataSource
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: ${MAIMAI_DB_URL:jdbc:mysql://localhost:3306/maimai_ticket?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
+
+    druid:
+      initial-size: 2
+      min-idle: 2
+      max-active: 10
+      max-wait: 60000
+
+      validation-query: SELECT 1
+      validation-query-timeout: 3
+      test-while-idle: true
+      test-on-borrow: false
+      test-on-return: false
+
+      keep-alive: true
+      # Druid 1.2.28 要求该值严格大于 time-between-eviction-runs-millis。
+      keep-alive-between-time-millis: 120000
+      time-between-eviction-runs-millis: 60000
+      min-evictable-idle-time-millis: 300000
+      max-evictable-idle-time-millis: 900000
+
+      pool-prepared-statements: false
+
+  servlet:
+    multipart:
+      max-file-size: 200MB
+      max-request-size: 205MB
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.maimaibackend.entity
+
+maimai:
+  media:
+    root: ${MAIMAI_MEDIA_ROOT:../maimai-media}
+    public-prefix: /media
+    image-max-size: 10485760
+    video-max-size: 209715200
+
+  notification:
+    push:
+      enabled: ${MAIMAI_PUSH_ENABLED:false}
+      test-message: ${MAIMAI_PUSH_TEST_MESSAGE:true}
+      project-id: ${MAIMAI_PUSH_PROJECT_ID:}
+      service-account-file: ${MAIMAI_PUSH_SERVICE_ACCOUNT_FILE:}
+      category: ${MAIMAI_PUSH_CATEGORY:MARKETING}
+      action: com.example.gomaimai.action.NOTIFICATION
+      ttl-seconds: 86400
+      scan-delay-ms: 30000
+      delivery-delay-ms: 10000
+      max-retry-count: 5
+      public-base-url: ${MAIMAI_PUBLIC_BASE_URL:}
+
+  ai:
+    enabled: ${MAIMAI_AI_ENABLED:false}
+    base-url: ${MAIMAI_AI_BASE_URL:https://api.openai.com/v1}
+    api-key: ${MAIMAI_AI_API_KEY:}
+    model: ${MAIMAI_AI_MODEL:}
+    connect-timeout-seconds: 10
+    request-timeout-seconds: 120
+    max-tool-rounds: 4
+
+  ticket-source:
+    gateway:
+      worker-count: 8
+      queue-capacity: 100
+      hard-timeout-ms: 10000
+    mock:
+      api-enabled: true
+    order:
+      expire-scan-enabled: true
+      expire-scan-delay-ms: 60000
+    issue:
+      # 统一票源工作流负责履约扫描；旧worker保留仅供历史手工兼容。
+      scan-enabled: false
+      scan-delay-ms: 30000
+      initial-delay-seconds: 120
+      poll-interval-seconds: 15
+      retry-base-seconds: 10
+      max-retry-count: 5
+      processing-timeout-seconds: 300
+    refund:
+      # 统一票源工作流负责整单退款扫描。
+      scan-enabled: false
+      scan-delay-ms: 60000
+      poll-interval-seconds: 15
+      retry-base-seconds: 10
+      max-retry-count: 5
+
+    workflow:
+      # 默认关闭；生产环境可按部署策略显式开启。
+      scan-enabled: false
+      scan-delay-ms: 30000
+      poll-interval-seconds: 15
+      max-retry-count: 5
+      local-mock-callback-signature-required: false
+      callback-secret: ${MAIMAI_LOCAL_MOCK_CALLBACK_SECRET:LOCAL_MOCK_V12_CALLBACK_TEST_SECRET}
+      callback-window-seconds: 300

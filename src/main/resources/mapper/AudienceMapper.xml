@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.AudienceMapper">
+
+    <select id="selectAudienceList" resultType="com.example.maimaibackend.vo.audience.AudienceDetailVO">
+        SELECT
+            audience_id AS audienceId,
+            real_name AS realName,
+            certificate_type AS certificateType,
+            certificate_no AS certificateNo,
+            phone AS phone,
+            is_default AS isDefault
+        FROM audience
+        WHERE user_id = #{userId}
+        ORDER BY is_default DESC, update_time DESC, audience_id DESC
+    </select>
+
+    <select id="selectAudienceDetail" resultType="com.example.maimaibackend.vo.audience.AudienceDetailVO">
+        SELECT
+            audience_id AS audienceId,
+            real_name AS realName,
+            certificate_type AS certificateType,
+            certificate_no AS certificateNo,
+            phone AS phone,
+            is_default AS isDefault
+        FROM audience
+        WHERE user_id = #{userId}
+          AND audience_id = #{audienceId}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM audience
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="countDefaultByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM audience
+        WHERE user_id = #{userId}
+          AND is_default = 1
+    </select>
+
+    <select id="countDuplicateCertificate" resultType="int">
+        SELECT COUNT(*)
+        FROM audience
+        WHERE user_id = #{userId}
+          AND certificate_no_hash = #{certificateNoHash}
+    </select>
+
+    <select id="countDuplicateCertificateExcludeSelf" resultType="int">
+        SELECT COUNT(*)
+        FROM audience
+        WHERE user_id = #{userId}
+          AND audience_id != #{audienceId}
+          AND certificate_no_hash = #{certificateNoHash}
+    </select>
+
+    <update id="clearDefault">
+        UPDATE audience
+        SET is_default = 0,
+            update_time = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+    <insert id="insertAudience"
+            parameterType="com.example.maimaibackend.dto.audience.AudienceSaveDTO"
+            useGeneratedKeys="true"
+            keyProperty="audienceId">
+        INSERT INTO audience
+        (user_id, real_name, certificate_type, certificate_no, certificate_no_hash, phone, is_default, create_time, update_time)
+        VALUES
+        (#{userId}, #{realName}, #{certificateType}, #{certificateNo}, #{certificateNoHash}, #{phone}, #{isDefault}, NOW(), NOW())
+    </insert>
+
+    <update id="updateAudience" parameterType="com.example.maimaibackend.dto.audience.AudienceSaveDTO">
+        UPDATE audience
+        SET real_name = #{realName},
+            certificate_type = #{certificateType},
+            certificate_no = #{certificateNo},
+            certificate_no_hash = #{certificateNoHash},
+            phone = #{phone},
+            is_default = #{isDefault},
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND audience_id = #{audienceId}
+    </update>
+
+    <delete id="deleteAudience">
+        DELETE FROM audience
+        WHERE user_id = #{userId}
+          AND audience_id = #{audienceId}
+    </delete>
+
+    <update id="setDefault">
+        UPDATE audience
+        SET is_default = 1,
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND audience_id = #{audienceId}
+    </update>
+
+    <select id="selectFirstAudienceId" resultType="long">
+        SELECT audience_id
+        FROM audience
+        WHERE user_id = #{userId}
+        ORDER BY update_time DESC, audience_id DESC
+        LIMIT 1
+    </select>
+
+</mapper>

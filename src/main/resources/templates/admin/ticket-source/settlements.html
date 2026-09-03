@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('账期结算')}"></head>
+<body>
+<div class="admin-app">
+<aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+<div class="admin-main">
+<header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+
+<main class="page-content ticket-source-page" data-ts-page="settlements">
+<section class="page-heading"><div><p class="breadcrumb">第三方票源 / 账期结算</p><h2>Provider 账期结算</h2><p>用户支付款进入麦麦商户账户；本页根据 Provider 结算价生成应付账单。销售增加应付，整单退款按原 Provider 结算额冲减，特殊费用通过调整项体现。</p></div></section>
+<div class="inline-alert warning ts-warning-box"><strong>账期边界：</strong>对账解决“订单/退款/票是否一致”，结算解决“本期最终应付 Provider 多少钱”。确认账单前可以重新生成和调整；确认后不可改写明细。</div>
+
+<section class="dashboard-grid ts-section-gap">
+  <div class="panel"><div class="panel-header"><div><h3>新建账期</h3><p>同一 Provider 不允许创建日期范围重叠的账期。</p></div></div><div class="panel-body">
+    <form id="tsSettlementCreateForm" class="ts-stack-form">
+      <label class="field"><span>Provider</span><select id="tsSettlementCreateProvider"></select></label>
+      <label class="field"><span>开始日期（含）</span><input id="tsSettlementDateFrom" type="date" required></label>
+      <label class="field"><span>结束日期（含）</span><input id="tsSettlementDateTo" type="date" required></label>
+      <label class="field"><span>备注</span><textarea id="tsSettlementRemark" rows="3" placeholder="例如：2026年8月上半月账期"></textarea></label>
+      <button class="button button-primary" type="submit">生成 DRAFT 账单</button>
+    </form>
+  </div></div>
+  <div class="panel"><div class="panel-header"><div><h3>结算口径</h3></div></div><div class="panel-body"><ul class="rule-list">
+    <li>SALE：按订单项 `settlement_price / settlement_unit_price × quantity` 增加应付。</li>
+    <li>REFUND：整单退款成功时按原 Provider 结算额冲减；不是按用户退款金额直接冲减。</li>
+    <li>ADJUSTMENT：用于供应商特殊手续费、跨期差额、负余额结转等人工核准项。</li>
+    <li>净应付 = 销售应付 - 退款冲减 + 调整项。</li>
+  </ul></div></div>
+</section>
+
+<section class="panel filter-panel ts-section-gap"><form id="tsSettlementFilterForm" class="filter-grid ts-filter-five">
+  <label class="field compact"><span>Provider</span><select id="tsSettlementProvider"></select></label>
+  <label class="field compact"><span>状态</span><select id="tsSettlementStatus"><option value="">全部</option><option>DRAFT</option><option>CONFIRMED</option><option>PAID</option><option>CARRIED_FORWARD</option></select></label>
+  <label class="field compact"><span>条数</span><select id="tsSettlementLimit"><option>50</option><option selected>100</option><option>200</option></select></label>
+  <div class="filter-actions"><button class="button button-secondary" type="submit">刷新账单</button></div>
+</form></section>
+<section class="panel table-panel"><div class="panel-header"><div><h3>账期列表</h3></div></div><div class="table-wrap"><table class="data-table ts-settlement-table"><thead><tr><th>账期</th><th>Provider</th><th>状态</th><th>销售</th><th>退款冲减</th><th>调整</th><th>净应付</th><th>关闭</th><th class="align-right">操作</th></tr></thead><tbody id="tsSettlementsBody"></tbody></table></div></section>
+
+<section class="panel ts-section-gap">
+  <div class="panel-header"><div><h3>账期明细</h3><p id="tsSettlementDetailTitle">点击账期“详情”查看</p></div></div>
+  <div class="panel-body">
+    <form id="tsSettlementAdjustmentForm" class="ts-inline-form" hidden>
+      <input id="tsSettlementAdjustmentPeriodId" type="hidden">
+      <input id="tsSettlementAdjustmentAmount" type="number" step="0.01" placeholder="调整金额，可正可负">
+      <input id="tsSettlementAdjustmentRemark" placeholder="调整原因（必填）">
+      <button class="button button-secondary" type="submit">添加调整项</button>
+    </form>
+  </div>
+  <div class="table-wrap"><table class="data-table ts-settlement-detail-table"><thead><tr><th>类型</th><th>业务时间</th><th>订单/退款</th><th>用户金额</th><th>Provider结算基准</th><th>对应付影响</th><th>备注</th></tr></thead><tbody id="tsSettlementDetailsBody"><tr><td colspan="7"><div class="table-empty">尚未选择账期</div></td></tr></tbody></table></div>
+</section>
+<div class="panel ts-section-gap"><pre class="ts-json" id="tsSettlementResult">暂无操作结果</pre></div>
+</main>
+</div></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/ticket-source-console.js(v='b12r6-width')}"></script>
+</body></html>

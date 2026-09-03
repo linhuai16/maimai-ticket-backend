@@ -1,0 +1,249 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.TicketMapper">
+
+    <select id="countUser" resultType="int">
+        SELECT COUNT(1)
+        FROM user_account
+        WHERE user_id = #{userId}
+          AND account_status = 'NORMAL'
+    </select>
+
+    <select id="selectTicketFolderItems"
+            resultType="com.example.maimaibackend.vo.ticket.TicketFolderItemVO">
+        SELECT
+            o.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.order_status AS orderStatus,
+            o.project_id AS projectId,
+            o.session_id AS sessionId,
+            p.project_status AS projectStatus,
+            s.session_status AS sessionStatus,
+            p.title AS title,
+            p.poster_url AS posterUrl,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.start_time AS startTime,
+            s.end_time AS endTime,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            o.delivery_type AS deliveryType,
+            (
+                SELECT q.delivery_mode
+                FROM ticket_source_order_bridge b
+                JOIN ticket_source_order_quote q ON q.quote_id = b.quote_id
+                WHERE b.order_id = o.order_id
+                LIMIT 1
+            ) AS deliveryMode,
+            item_stat.skuSummary AS skuSummary,
+            item_stat.totalQuantity AS totalQuantity,
+            o.pay_amount AS payAmount,
+            CASE
+                WHEN o.delivery_type = 'PAPER_TICKET' THEN item_stat.totalQuantity
+                ELSE COALESCE(ticket_stat.ticket_count, 0)
+            END AS ticketCount,
+            (
+                SELECT et2.ticket_id
+                FROM electronic_ticket et2
+                WHERE et2.order_id = o.order_id
+                ORDER BY
+                    CASE et2.ticket_status
+                        WHEN 'UNUSED' THEN 1
+                        WHEN 'GENERATING' THEN 2
+                        WHEN 'ERROR' THEN 3
+                        WHEN 'CHECKED' THEN 4
+                        WHEN 'EXPIRED' THEN 5
+                        ELSE 9
+                    END,
+                    et2.ticket_id ASC
+                LIMIT 1
+            ) AS defaultTicketId,
+            CASE
+                WHEN o.delivery_type = 'PAPER_TICKET' AND s.end_time IS NOT NULL AND s.end_time &lt;= NOW() THEN 'EXPIRED'
+                WHEN o.delivery_type = 'PAPER_TICKET' AND o.order_status = 'WAIT_USE' THEN 'UNUSED'
+                WHEN o.delivery_type = 'PAPER_TICKET' THEN 'EXPIRED'
+                ELSE (
+                    SELECT CASE
+                        WHEN s.end_time IS NOT NULL AND s.end_time &lt;= NOW() AND et3.ticket_status = 'UNUSED' THEN 'EXPIRED'
+                        ELSE et3.ticket_status
+                    END
+                    FROM electronic_ticket et3
+                    WHERE et3.order_id = o.order_id
+                    ORDER BY
+                        CASE
+                            WHEN s.end_time IS NOT NULL AND s.end_time &lt;= NOW() AND et3.ticket_status = 'UNUSED' THEN 5
+                            WHEN et3.ticket_status = 'UNUSED' THEN 1
+                            WHEN et3.ticket_status = 'GENERATING' THEN 2
+                            WHEN et3.ticket_status = 'ERROR' THEN 3
+                            WHEN et3.ticket_status = 'CHECKED' THEN 4
+                            WHEN et3.ticket_status = 'EXPIRED' THEN 5
+                            ELSE 9
+                        END,
+                        et3.ticket_id ASC
+                    LIMIT 1
+                )
+            END AS ticketStatus,
+            CASE
+                WHEN s.end_time IS NOT NULL AND s.end_time &lt;= NOW() THEN 'UNAVAILABLE'
+                WHEN o.delivery_type = 'PAPER_TICKET' AND o.order_status = 'WAIT_USE' THEN 'UNUSED'
+                WHEN o.delivery_type = 'PAPER_TICKET' THEN 'UNAVAILABLE'
+                WHEN COALESCE(ticket_stat.unused_count, 0) &gt; 0 THEN 'UNUSED'
+                ELSE 'UNAVAILABLE'
+            END AS displayStatus,
+            o.create_time AS createTime
+        FROM ticket_order o
+        JOIN performance_project p ON p.project_id = o.project_id
+        JOIN performance_session s ON s.session_id = o.session_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        JOIN (
+            SELECT
+                order_id,
+                GROUP_CONCAT(CONCAT(sku_name, ' x', quantity) ORDER BY order_item_id SEPARATOR '；') AS skuSummary,
+                SUM(quantity) AS totalQuantity
+            FROM order_item
+            GROUP BY order_id
+        ) item_stat ON item_stat.order_id = o.order_id
+        LEFT JOIN (
+            SELECT
+                order_id,
+                COUNT(ticket_id) AS ticket_count,
+                SUM(CASE WHEN ticket_status = 'UNUSED' THEN 1 ELSE 0 END) AS unused_count
+            FROM electronic_ticket
+            GROUP BY order_id
+        ) ticket_stat ON ticket_stat.order_id = o.order_id
+        WHERE o.user_id = #{userId}
+          AND o.order_status IN ('WAIT_USE', 'REFUNDING', 'FINISHED', 'REFUND_SUCCESS')
+        ORDER BY o.create_time DESC, o.order_id DESC
+    </select>
+
+    <select id="selectTicketDetailBase"
+            resultType="com.example.maimaibackend.vo.ticket.TicketDetailPageVO">
+        SELECT
+            o.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.order_status AS orderStatus,
+            o.project_id AS projectId,
+            o.session_id AS sessionId,
+            p.title AS title,
+            p.poster_url AS posterUrl,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.start_time AS startTime,
+            s.end_time AS endTime,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            v.longitude AS venueLongitude,
+            v.latitude AS venueLatitude,
+            o.delivery_type AS deliveryType,
+            (
+                SELECT q.delivery_mode
+                FROM ticket_source_order_bridge b
+                JOIN ticket_source_order_quote q ON q.quote_id = b.quote_id
+                WHERE b.order_id = o.order_id
+                LIMIT 1
+            ) AS deliveryMode,
+            item_stat.totalQuantity AS totalQuantity,
+            o.pay_amount AS payAmount,
+            (
+                SELECT et2.ticket_id
+                FROM electronic_ticket et2
+                WHERE et2.order_id = o.order_id
+                ORDER BY
+                    CASE et2.ticket_status
+                        WHEN 'UNUSED' THEN 1
+                        WHEN 'GENERATING' THEN 2
+                        WHEN 'ERROR' THEN 3
+                        WHEN 'CHECKED' THEN 4
+                        WHEN 'EXPIRED' THEN 5
+                        ELSE 9
+                    END,
+                    et2.ticket_id ASC
+                LIMIT 1
+            ) AS defaultTicketId
+        FROM ticket_order o
+        JOIN performance_project p ON p.project_id = o.project_id
+        JOIN performance_session s ON s.session_id = o.session_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        JOIN (
+            SELECT
+                order_id,
+                SUM(quantity) AS totalQuantity
+            FROM order_item
+            GROUP BY order_id
+        ) item_stat ON item_stat.order_id = o.order_id
+        WHERE o.order_id = #{orderId}
+          AND o.user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <select id="selectElectronicTickets"
+            resultType="com.example.maimaibackend.vo.ticket.ElectronicTicketVO">
+        SELECT
+            et.ticket_id AS ticketId,
+            et.ticket_no AS ticketNo,
+            et.order_id AS orderId,
+            et.order_item_id AS orderItemId,
+            et.order_audience_id AS orderAudienceId,
+            CASE
+                WHEN s.end_time IS NOT NULL AND s.end_time &lt;= NOW() AND et.ticket_status = 'UNUSED' THEN 'EXPIRED'
+                ELSE et.ticket_status
+            END AS ticketStatus,
+            et.credential_type AS credentialType,
+            et.dynamic_qr_mode AS dynamicQrMode,
+            et.credential_version AS credentialVersion,
+            CASE
+                WHEN s.end_time IS NOT NULL AND s.end_time &lt;= NOW() AND et.ticket_status = 'UNUSED' THEN NULL
+                ELSE et.credential_expire_time
+            END AS credentialExpireTime,
+            et.refresh_after_seconds AS refreshAfterSeconds,
+            CASE
+                WHEN s.end_time IS NOT NULL AND s.end_time &lt;= NOW() AND et.ticket_status = 'UNUSED' THEN NULL
+                WHEN et.credential_type = 'DYNAMIC_QR' THEN NULL
+                WHEN et.credential_type = 'STATIC_QR' THEN COALESCE(et.qr_code_value, et.credential_payload)
+                WHEN et.credential_type IN ('SMS_CODE','EXCHANGE_CODE','URL','TEXT') THEN et.credential_payload
+                ELSE NULL
+            END AS credentialDisplayValue,
+            CASE
+                WHEN s.end_time IS NOT NULL AND s.end_time &lt;= NOW() AND et.ticket_status = 'UNUSED' THEN NULL
+                WHEN et.credential_type = 'STATIC_QR' THEN COALESCE(et.qr_code_value, et.credential_payload)
+                ELSE NULL
+            END AS qrCodeValue,
+            et.seat_info AS seatInfo,
+            et.entrance_info AS entranceInfo,
+            et.generate_time AS generateTime,
+            et.check_time AS checkTime,
+            et.expire_time AS expireTime,
+            et.abnormal_reason AS abnormalReason,
+            oi.sku_id AS skuId,
+            oi.sku_name AS skuName,
+            oi.unit_price AS unitPrice,
+            oa.real_name AS realName,
+            oa.certificate_type AS certificateType,
+            CASE
+                WHEN oa.certificate_no IS NULL OR oa.certificate_no = '' THEN NULL
+                WHEN CHAR_LENGTH(oa.certificate_no) &lt;= 7 THEN '***'
+                ELSE CONCAT(LEFT(oa.certificate_no, 3), REPEAT('*', GREATEST(1, CHAR_LENGTH(oa.certificate_no) - 7)), RIGHT(oa.certificate_no, 4))
+            END AS maskedCertificateNo
+        FROM electronic_ticket et
+        JOIN ticket_order o ON o.order_id = et.order_id
+        JOIN performance_session s ON s.session_id = o.session_id
+        JOIN order_item oi ON oi.order_item_id = et.order_item_id
+        JOIN order_audience oa ON oa.order_audience_id = et.order_audience_id
+        WHERE et.order_id = #{orderId}
+        ORDER BY
+            CASE
+                WHEN s.end_time IS NOT NULL AND s.end_time &lt;= NOW() AND et.ticket_status = 'UNUSED' THEN 5
+                WHEN et.ticket_status = 'UNUSED' THEN 1
+                WHEN et.ticket_status = 'GENERATING' THEN 2
+                WHEN et.ticket_status = 'ERROR' THEN 3
+                WHEN et.ticket_status = 'CHECKED' THEN 4
+                WHEN et.ticket_status = 'EXPIRED' THEN 5
+                ELSE 9
+            END,
+            et.ticket_id ASC
+    </select>
+
+</mapper>

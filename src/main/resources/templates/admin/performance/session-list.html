@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('演出场次')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="sessionManagementPage"
+              th:attr="data-selected-project-id=${selectedProjectId}">
+            <section class="page-heading">
+                <div>
+                    <p class="breadcrumb">演出管理 / 演出场次</p>
+                    <h2>演出场次管理</h2>
+                    <p>先选择演出项目，再维护项目下的城市站、演出时间、场馆与售卖状态。</p>
+                </div>
+                <button class="button button-primary" type="button" id="createSessionButton" disabled>＋ 新建场次</button>
+            </section>
+
+            <section class="panel selector-panel">
+                <div class="selector-layout">
+                    <label class="field">
+                        <span>当前项目</span>
+                        <select id="projectSelect">
+                            <option value="">请选择演出项目</option>
+                        </select>
+                    </label>
+                    <div class="selector-actions">
+                        <a class="button button-ghost" id="editSelectedProjectLink" href="/admin/performances/projects" hidden>编辑项目</a>
+                        <a class="button button-ghost" id="manageSelectedSkuLink" href="/admin/performances/skus" hidden>管理票档</a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="project-context-card" id="selectedProjectCard" hidden>
+                <div class="project-context-main">
+                    <div class="project-context-poster" id="selectedProjectPoster">演</div>
+                    <div>
+                        <p>当前管理项目</p>
+                        <h3 id="selectedProjectTitle">-</h3>
+                        <div class="context-meta" id="selectedProjectMeta"></div>
+                    </div>
+                </div>
+                <div class="project-context-stats">
+                    <div><span>场次数</span><strong id="contextSessionCount">0</strong></div>
+                    <div><span>可售库存</span><strong id="contextStockCount">0</strong></div>
+                    <div><span>已售数量</span><strong id="contextSoldCount">0</strong></div>
+                </div>
+            </section>
+
+            <section class="panel filter-panel">
+                <form id="sessionFilterForm" class="filter-grid filter-grid-session">
+                    <label class="field compact">
+                        <span>场次状态</span>
+                        <select id="sessionStatusFilter">
+                            <option value="">全部状态</option>
+                            <option value="PRESALE">预售</option>
+                            <option value="ON_SALE">在售</option>
+                            <option value="SOLD_OUT">已售罄</option>
+                            <option value="ENDED">已结束</option>
+                            <option value="OFFLINE">已下架</option>
+                        </select>
+                    </label>
+                    <div class="filter-actions">
+                        <button class="button button-primary" type="submit">筛选</button>
+                        <button class="button button-secondary" type="button" id="resetSessionFilterButton">重置</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel table-panel">
+                <div class="panel-header table-header">
+                    <div><h3>场次数据</h3><p id="sessionTotalText">请先选择演出项目</p></div>
+                    <button class="button button-ghost button-small" type="button" id="refreshSessionButton" disabled>刷新</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table session-table">
+                        <thead>
+                        <tr>
+                            <th>城市站 / 场馆</th>
+                            <th>演出时间</th>
+                            <th>售卖时间</th>
+                            <th>票务资源</th>
+                            <th>配送 / 限购</th>
+                            <th>状态</th>
+                            <th class="align-right">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="sessionTableBody">
+                        <tr><td colspan="7"><div class="table-empty">选择演出项目后显示场次</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="sessionModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-xlarge" role="dialog" aria-modal="true" aria-labelledby="sessionModalTitle">
+        <form id="sessionForm" novalidate>
+            <div class="modal-header">
+                <div><p class="modal-eyebrow">PERFORMANCE SESSION</p><h3 id="sessionModalTitle">新建演出场次</h3></div>
+                <button class="icon-button" id="sessionModalClose" type="button" aria-label="关闭">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="inline-alert info">填写城市名称和站点名称后，系统会自动匹配同城场馆。保存时以后端场馆所属城市为准，禁止创建城市与场馆不一致的场次。已产生订单的场次不能修改基础信息。</div>
+                <div class="field-grid field-grid-two modal-form-grid">
+                    <label class="field">
+                        <span>城市名称 *</span>
+                        <input id="sessionCityName" type="text" maxlength="50" required placeholder="例如：北京或北京市" autocomplete="off">
+                    </label>
+                    <label class="field">
+                        <span>站点名称 *</span>
+                        <input id="stationName" type="text" maxlength="100" required placeholder="例如：北京站、北京加场" autocomplete="off">
+                    </label>
+                    <label class="field field-wide">
+                        <span>演出场馆 *</span>
+                        <div class="input-action-row">
+                            <select id="sessionVenueId" required disabled>
+                                <option value="">请先填写城市名称或站点名称</option>
+                            </select>
+                            <button class="button button-secondary" id="loadVenueButton" type="button">匹配场馆</button>
+                        </div>
+                        <small id="venueSelectTip">填写城市或“北京站”这类站点名称后自动加载同城场馆，最多 50 个</small>
+                    </label>
+                    <label class="field">
+                        <span>演出开始时间 *</span>
+                        <input id="sessionStartTime" type="datetime-local" step="1" required>
+                    </label>
+                    <label class="field">
+                        <span>演出结束时间</span>
+                        <input id="sessionEndTime" type="datetime-local" step="1">
+                    </label>
+                    <label class="field">
+                        <span>开售时间</span>
+                        <input id="saleStartTime" type="datetime-local" step="1">
+                    </label>
+                    <label class="field">
+                        <span>停售时间</span>
+                        <input id="saleEndTime" type="datetime-local" step="1">
+                    </label>
+                    <div class="field field-wide">
+                        <span>发布状态</span>
+                        <div class="inline-alert info" id="sessionCurrentStatusText">新建场次保存后默认为已下架。请先完善场次并配置票档，再在场次列表中单独执行“上架为预售”或“上架为在售”。</div>
+                    </div>
+                    <label class="field">
+                        <span>配送方式 *</span>
+                        <select id="deliveryType" required>
+                            <option value="ETICKET">电子票</option>
+                            <option value="PAPER_TICKET">纸质票</option>
+                            <option value="MIXED">电子票 + 纸质票</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>每单限购 *</span>
+                        <input id="limitPerOrder" type="number" min="1" max="99" step="1" value="4" required>
+                    </label>
+                    <label class="field">
+                        <span>提前出票小时数</span>
+                        <input id="issueOffsetHours" type="number" min="0" max="8760" step="1" value="24">
+                    </label>
+                    <div class="field field-wide">
+                        <span>城市站详情</span>
+                        <div th:replace="~{admin/components/rich-text-editor :: editor('stationDetailContent', 'SESSION_DETAIL_IMAGE', 'SESSION_DETAIL_VIDEO', '填写该城市站独有的演出说明，可插入城市站详情图片和视频')}"></div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary" id="sessionModalCancel" type="button">取消</button>
+                <button class="button button-primary" id="saveSessionButton" type="submit">保存场次</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="sessionDetailModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="sessionDetailTitle">
+        <div class="modal-header">
+            <div><p class="modal-eyebrow">SESSION DETAIL</p><h3 id="sessionDetailTitle">场次详情</h3></div>
+            <button class="icon-button" id="sessionDetailClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body" id="sessionDetailContent"><div class="table-empty">正在读取...</div></div>
+        <div class="modal-footer"><button class="button button-secondary" id="sessionDetailCloseButton" type="button">关闭</button></div>
+    </div>
+</div>
+
+<div th:replace="~{admin/components/media-selector :: selector}"></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/media-selector.js}"></script>
+<script th:src="@{/admin/js/rich-text-editor.js}"></script>
+<script th:src="@{/admin/js/session-management.js}"></script>
+</body>
+</html>

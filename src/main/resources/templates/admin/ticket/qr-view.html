@@ -1,0 +1,6 @@
+<!DOCTYPE html><html lang="zh-CN" xmlns:th="http://www.thymeleaf.org"><head th:replace="~{admin/fragments/head :: head('二维码查看')}"></head><body>
+<div class="admin-app"><aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside><div class="admin-main"><header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header><main class="page-content" id="ticketQrPage" th:attr="data-ticket-id=${ticketId}">
+<section class="page-heading"><div><p class="breadcrumb">票务管理 / 二维码查看</p><h2>电子票二维码</h2><p>二维码仅用于后台核验与问题排查，请勿公开传播。</p></div><a class="button button-secondary" th:href="@{/admin/tickets}">返回电子票列表</a></section>
+<section class="panel qr-panel"><div class="qr-layout"><div class="qr-image-wrap"><img id="ticketQrImage" alt="电子票二维码"><div id="qrImageMessage" class="table-empty">正在生成二维码...</div></div><div class="qr-detail" id="qrDetail"><h3>正在读取电子票...</h3></div></div></section>
+</main></div></div><div th:replace="~{admin/fragments/feedback :: feedback}"></div><script th:src="@{/admin/js/common.js}"></script><script th:src="@{/admin/js/request.js}"></script><script th:src="@{/admin/js/qr-view.js}"></script>
+</body></html>

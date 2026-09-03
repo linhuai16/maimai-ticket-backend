@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.TicketSourceGatewayLogMapper">
+    <insert id="insertLog" parameterType="com.example.maimaibackend.ticketsource.log.model.TicketSourceGatewayLog">
+        INSERT IGNORE INTO ticket_source_gateway_log
+        (request_id,provider_code,adapter_code,operation_code,success,gateway_error_code,
+         provider_error_code,message,retryable,elapsed_ms,call_time,create_time)
+        VALUES
+        (#{requestId},#{providerCode},#{adapterCode},#{operationCode},#{success},#{gatewayErrorCode},
+         #{providerErrorCode},#{message},#{retryable},#{elapsedMs},#{callTime},NOW())
+    </insert>
+
+    <select id="selectLogs" resultType="com.example.maimaibackend.ticketsource.log.model.TicketSourceGatewayLog">
+        SELECT log_id AS logId,request_id AS requestId,provider_code AS providerCode,
+               adapter_code AS adapterCode,operation_code AS operationCode,success AS success,
+               gateway_error_code AS gatewayErrorCode,provider_error_code AS providerErrorCode,
+               message,retryable,elapsed_ms AS elapsedMs,call_time AS callTime,create_time AS createTime
+        FROM ticket_source_gateway_log
+        WHERE 1=1
+        <if test="providerCode != null and providerCode != ''">
+            AND provider_code=#{providerCode}
+        </if>
+        <if test="operationCode != null and operationCode != ''">
+            AND operation_code=#{operationCode}
+        </if>
+        <if test="success != null">
+            AND success=#{success}
+        </if>
+        ORDER BY log_id DESC
+        LIMIT #{limit}
+    </select>
+</mapper>

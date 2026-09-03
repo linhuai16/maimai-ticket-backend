@@ -1,0 +1,595 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminTicketMapper">
+
+    <sql id="TicketJoins">
+        FROM electronic_ticket t
+        LEFT JOIN ticket_order o ON o.order_id = t.order_id
+        LEFT JOIN user_account u ON u.user_id = o.user_id
+        LEFT JOIN performance_project p ON p.project_id = o.project_id
+        LEFT JOIN performance_session s ON s.session_id = o.session_id
+        LEFT JOIN venue v ON v.venue_id = s.venue_id
+        LEFT JOIN order_item oi ON oi.order_item_id = t.order_item_id
+        LEFT JOIN order_audience oa ON oa.order_audience_id = t.order_audience_id
+        LEFT JOIN ticket_source_provider tsp ON tsp.provider_id = t.source_provider_id
+    </sql>
+
+    <sql id="TicketItemColumns">
+        t.ticket_id AS ticketId,
+        t.ticket_no AS ticketNo,
+        t.order_id AS orderId,
+        o.order_no AS orderNo,
+        o.user_id AS userId,
+        u.phone AS userPhone,
+        u.nickname AS nickname,
+        o.project_id AS projectId,
+        p.title AS projectTitle,
+        o.session_id AS sessionId,
+        s.city_name AS cityName,
+        s.station_name AS stationName,
+        v.venue_name AS venueName,
+        s.start_time AS startTime,
+        t.order_item_id AS orderItemId,
+        oi.sku_id AS skuId,
+        oi.sku_name AS skuName,
+        t.order_audience_id AS orderAudienceId,
+        oa.real_name AS audienceName,
+        oa.certificate_type AS certificateType,
+        oa.certificate_no AS certificateNo,
+        t.ticket_status AS ticketStatus,
+        o.fulfillment_mode AS fulfillmentMode,
+        t.source_provider_id AS sourceProviderId,
+        tsp.provider_code AS sourceProviderCode,
+        t.provider_ticket_id AS providerTicketId,
+        t.credential_type AS credentialType,
+        t.seat_info AS seatInfo,
+        t.seat_zone AS seatZone,
+        t.seat_row AS seatRow,
+        t.seat_number AS seatNumber,
+        t.generate_time AS generateTime,
+        t.provider_issue_time AS providerIssueTime,
+        t.check_time AS checkTime,
+        t.expire_time AS expireTime,
+        t.abnormal_reason AS abnormalReason,
+        t.create_time AS createTime,
+        t.update_time AS updateTime
+    </sql>
+
+    <sql id="TicketListWhere">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    CAST(t.ticket_id AS CHAR) = #{keyword}
+                    OR t.ticket_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.phone LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR p.title LIKE CONCAT('%', #{keyword}, '%')
+                    OR oa.real_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR oa.certificate_no LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="orderId != null">
+                AND t.order_id = #{orderId}
+            </if>
+            <if test="userId != null">
+                AND o.user_id = #{userId}
+            </if>
+            <if test="projectId != null">
+                AND o.project_id = #{projectId}
+            </if>
+            <if test="sessionId != null">
+                AND o.session_id = #{sessionId}
+            </if>
+            <if test="ticketStatus != null and ticketStatus != ''">
+                AND t.ticket_status = #{ticketStatus}
+            </if>
+            <if test="dateFrom != null and dateFrom != ''">
+                AND t.create_time &gt;= CONCAT(#{dateFrom}, ' 00:00:00')
+            </if>
+            <if test="dateTo != null and dateTo != ''">
+                AND t.create_time &lt;= CONCAT(#{dateTo}, ' 23:59:59')
+            </if>
+        </where>
+    </sql>
+
+    <select id="countTicketList" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        <include refid="TicketJoins"/>
+        <include refid="TicketListWhere"/>
+    </select>
+
+    <select id="selectTicketList" resultType="com.example.maimaibackend.vo.admin.AdminTicketItemVO">
+        SELECT
+        <include refid="TicketItemColumns"/>
+        <include refid="TicketJoins"/>
+        <include refid="TicketListWhere"/>
+        ORDER BY t.create_time DESC, t.ticket_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectTicketDetail" resultType="com.example.maimaibackend.vo.admin.AdminTicketDetailVO">
+        SELECT
+            t.ticket_id AS ticketId,
+            t.ticket_no AS ticketNo,
+            t.ticket_status AS ticketStatus,
+            o.fulfillment_mode AS fulfillmentMode,
+            t.source_provider_id AS sourceProviderId,
+            tsp.provider_code AS sourceProviderCode,
+            t.provider_order_id AS providerOrderId,
+            t.provider_ticket_id AS providerTicketId,
+            t.credential_type AS credentialType,
+            t.credential_payload AS credentialPayload,
+            t.credential_version AS credentialVersion,
+            t.qr_code_value AS qrCodeValue,
+            t.seat_info AS seatInfo,
+            t.seat_zone AS seatZone,
+            t.seat_row AS seatRow,
+            t.seat_number AS seatNumber,
+            t.entrance_info AS entranceInfo,
+            t.generate_time AS generateTime,
+            t.provider_issue_time AS providerIssueTime,
+            t.last_source_sync_time AS lastSourceSyncTime,
+            t.check_time AS checkTime,
+            t.expire_time AS expireTime,
+            t.abnormal_reason AS abnormalReason,
+            t.create_time AS createTime,
+            t.update_time AS updateTime,
+            o.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.order_status AS orderStatus,
+            o.delivery_type AS deliveryType,
+            o.pay_amount AS payAmount,
+            o.user_id AS userId,
+            u.phone AS userPhone,
+            u.nickname AS nickname,
+            o.project_id AS projectId,
+            p.title AS projectTitle,
+            p.poster_url AS posterUrl,
+            o.session_id AS sessionId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.start_time AS startTime,
+            s.end_time AS endTime,
+            s.venue_id AS venueId,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            t.order_item_id AS orderItemId,
+            oi.sku_id AS skuId,
+            oi.sku_name AS skuName,
+            oi.unit_price AS unitPrice,
+            t.order_audience_id AS orderAudienceId,
+            oa.real_name AS audienceName,
+            oa.certificate_type AS certificateType,
+            oa.certificate_no AS certificateNo,
+            oa.phone AS audiencePhone
+        <include refid="TicketJoins"/>
+        WHERE t.ticket_id = #{ticketId}
+        LIMIT 1
+    </select>
+
+
+    <select id="selectOrderFulfillmentMode" resultType="string">
+        SELECT fulfillment_mode FROM ticket_order WHERE order_id=#{orderId} LIMIT 1
+    </select>
+
+    <select id="selectTicketStateForUpdate" resultType="com.example.maimaibackend.dto.admin.AdminTicketStateDTO">
+        SELECT
+            t.ticket_id AS ticketId,
+            t.order_id AS orderId,
+            t.ticket_status AS ticketStatus,
+            o.order_status AS orderStatus
+        FROM electronic_ticket t
+        INNER JOIN ticket_order o ON o.order_id = t.order_id
+        WHERE t.ticket_id = #{ticketId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <update id="updateTicketSeat">
+        UPDATE electronic_ticket
+        SET seat_info = #{seatInfo},
+            update_time = #{updateTime}
+        WHERE ticket_id = #{ticketId}
+    </update>
+
+    <update id="markTicketError">
+        UPDATE electronic_ticket
+        SET ticket_status = 'ERROR',
+            qr_code_value = NULL,
+            generate_time = NULL,
+            check_time = NULL,
+            expire_time = NULL,
+            abnormal_reason = #{abnormalReason},
+            update_time = #{updateTime}
+        WHERE ticket_id = #{ticketId}
+          AND ticket_status IN ('GENERATING', 'UNUSED')
+    </update>
+
+    <update id="retryTicket">
+        UPDATE electronic_ticket
+        SET ticket_status = 'GENERATING',
+            qr_code_value = NULL,
+            generate_time = NULL,
+            check_time = NULL,
+            expire_time = NULL,
+            abnormal_reason = NULL,
+            update_time = #{updateTime}
+        WHERE ticket_id = #{ticketId}
+          AND ticket_status = 'ERROR'
+    </update>
+
+    <sql id="IssueStatusExpression">
+        CASE
+            WHEN COUNT(t.ticket_id) = 0 THEN 'NO_TICKET'
+            WHEN SUM(CASE WHEN t.ticket_status = 'ERROR' THEN 1 ELSE 0 END) &gt; 0
+                 AND SUM(CASE WHEN t.ticket_status IN ('UNUSED', 'CHECKED', 'EXPIRED') THEN 1 ELSE 0 END) &gt; 0
+                THEN 'PARTIAL'
+            WHEN SUM(CASE WHEN t.ticket_status = 'ERROR' THEN 1 ELSE 0 END) &gt; 0 THEN 'ERROR'
+            WHEN SUM(CASE WHEN t.ticket_status = 'GENERATING' THEN 1 ELSE 0 END) &gt; 0
+                 AND SUM(CASE WHEN t.ticket_status IN ('UNUSED', 'CHECKED', 'EXPIRED') THEN 1 ELSE 0 END) &gt; 0
+                THEN 'PARTIAL'
+            WHEN SUM(CASE WHEN t.ticket_status = 'GENERATING' THEN 1 ELSE 0 END) &gt; 0 THEN 'GENERATING'
+            ELSE 'ISSUED'
+        END
+    </sql>
+
+    <sql id="IssueOrderWhere">
+        WHERE o.order_status = 'WAIT_USE'
+        <if test="keyword != null and keyword != ''">
+            AND (
+                o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                OR p.title LIKE CONCAT('%', #{keyword}, '%')
+                OR s.station_name LIKE CONCAT('%', #{keyword}, '%')
+                OR v.venue_name LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        <if test="projectId != null">
+            AND o.project_id = #{projectId}
+        </if>
+        <if test="sessionId != null">
+            AND o.session_id = #{sessionId}
+        </if>
+        <if test="dateFrom != null and dateFrom != ''">
+            AND o.create_time &gt;= CONCAT(#{dateFrom}, ' 00:00:00')
+        </if>
+        <if test="dateTo != null and dateTo != ''">
+            AND o.create_time &lt;= CONCAT(#{dateTo}, ' 23:59:59')
+        </if>
+    </sql>
+
+    <select id="countIssueOrderList" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM (
+            SELECT
+                o.order_id,
+                <include refid="IssueStatusExpression"/> AS issueStatus
+            FROM ticket_order o
+            LEFT JOIN performance_project p ON p.project_id = o.project_id
+            LEFT JOIN performance_session s ON s.session_id = o.session_id
+            LEFT JOIN venue v ON v.venue_id = s.venue_id
+            LEFT JOIN electronic_ticket t ON t.order_id = o.order_id
+            <include refid="IssueOrderWhere"/>
+            GROUP BY o.order_id
+            <if test="issueStatus != null and issueStatus != ''">
+                HAVING issueStatus = #{issueStatus}
+            </if>
+        ) issue_orders
+    </select>
+
+    <select id="selectIssueOrderList" resultType="com.example.maimaibackend.vo.admin.AdminIssueOrderItemVO">
+        SELECT
+            o.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.order_status AS orderStatus,
+            o.pay_amount AS payAmount,
+            o.project_id AS projectId,
+            p.title AS projectTitle,
+            o.session_id AS sessionId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            v.venue_name AS venueName,
+            s.start_time AS startTime,
+            o.ticket_issued_time AS ticketIssuedTime,
+            COUNT(t.ticket_id) AS totalTicketCount,
+            SUM(CASE WHEN t.ticket_status = 'GENERATING' THEN 1 ELSE 0 END) AS generatingCount,
+            SUM(CASE WHEN t.ticket_status = 'ERROR' THEN 1 ELSE 0 END) AS errorCount,
+            SUM(CASE WHEN t.ticket_status = 'UNUSED' THEN 1 ELSE 0 END) AS unusedCount,
+            SUM(CASE WHEN t.ticket_status = 'CHECKED' THEN 1 ELSE 0 END) AS checkedCount,
+            SUM(CASE WHEN t.ticket_status = 'EXPIRED' THEN 1 ELSE 0 END) AS expiredCount,
+            <include refid="IssueStatusExpression"/> AS issueStatus,
+            MIN(t.create_time) AS ticketCreateTime,
+            MAX(t.update_time) AS ticketUpdateTime
+        FROM ticket_order o
+        LEFT JOIN performance_project p ON p.project_id = o.project_id
+        LEFT JOIN performance_session s ON s.session_id = o.session_id
+        LEFT JOIN venue v ON v.venue_id = s.venue_id
+        LEFT JOIN electronic_ticket t ON t.order_id = o.order_id
+        <include refid="IssueOrderWhere"/>
+        GROUP BY
+            o.order_id, o.order_no, o.order_status, o.pay_amount,
+            o.project_id, p.title, o.session_id, s.city_name, s.station_name,
+            v.venue_name, s.start_time, o.ticket_issued_time
+        <if test="issueStatus != null and issueStatus != ''">
+            HAVING issueStatus = #{issueStatus}
+        </if>
+        ORDER BY ticketUpdateTime DESC, o.order_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectIssueOrderSummary" resultType="com.example.maimaibackend.vo.admin.AdminIssueOrderDetailVO">
+        SELECT
+            o.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.order_status AS orderStatus,
+            o.pay_amount AS payAmount,
+            o.project_id AS projectId,
+            p.title AS projectTitle,
+            o.session_id AS sessionId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            v.venue_name AS venueName,
+            s.start_time AS startTime,
+            o.ticket_issued_time AS ticketIssuedTime,
+            COUNT(t.ticket_id) AS totalTicketCount,
+            SUM(CASE WHEN t.ticket_status = 'GENERATING' THEN 1 ELSE 0 END) AS generatingCount,
+            SUM(CASE WHEN t.ticket_status = 'ERROR' THEN 1 ELSE 0 END) AS errorCount,
+            SUM(CASE WHEN t.ticket_status = 'UNUSED' THEN 1 ELSE 0 END) AS unusedCount,
+            SUM(CASE WHEN t.ticket_status = 'CHECKED' THEN 1 ELSE 0 END) AS checkedCount,
+            SUM(CASE WHEN t.ticket_status = 'EXPIRED' THEN 1 ELSE 0 END) AS expiredCount,
+            <include refid="IssueStatusExpression"/> AS issueStatus
+        FROM ticket_order o
+        LEFT JOIN performance_project p ON p.project_id = o.project_id
+        LEFT JOIN performance_session s ON s.session_id = o.session_id
+        LEFT JOIN venue v ON v.venue_id = s.venue_id
+        LEFT JOIN electronic_ticket t ON t.order_id = o.order_id
+        WHERE o.order_id = #{orderId}
+        GROUP BY
+            o.order_id, o.order_no, o.order_status, o.pay_amount,
+            o.project_id, p.title, o.session_id, s.city_name, s.station_name,
+            v.venue_name, s.start_time, o.ticket_issued_time
+        LIMIT 1
+    </select>
+
+    <select id="selectTicketsByOrder" resultType="com.example.maimaibackend.vo.admin.AdminTicketItemVO">
+        SELECT
+        <include refid="TicketItemColumns"/>
+        <include refid="TicketJoins"/>
+        WHERE t.order_id = #{orderId}
+        ORDER BY t.ticket_id ASC
+    </select>
+
+    <select id="selectIssueOrderForUpdate" resultType="com.example.maimaibackend.dto.ticket.IssueOrderBaseDTO">
+        SELECT
+            order_id AS orderId,
+            order_status AS orderStatus,
+            fulfillment_mode AS fulfillmentMode,
+            pay_amount AS payAmount,
+            ticket_issued_time AS ticketIssuedTime
+        FROM ticket_order
+        WHERE order_id = #{orderId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="countIssueSuccessCandidates" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM electronic_ticket
+        WHERE order_id = #{orderId}
+          AND ticket_status IN ('GENERATING', 'ERROR')
+    </select>
+
+    <update id="issueOrderTickets">
+        UPDATE electronic_ticket
+        SET ticket_status = 'UNUSED',
+            qr_code_value = CONCAT('MAIMAI_QR_', ticket_no, '_', DATE_FORMAT(#{issueTime}, '%Y%m%d%H%i%s')),
+            generate_time = #{issueTime},
+            check_time = NULL,
+            expire_time = NULL,
+            abnormal_reason = NULL,
+            update_time = #{issueTime}
+        WHERE order_id = #{orderId}
+          AND ticket_status IN ('GENERATING', 'ERROR')
+    </update>
+
+    <update id="updateOrderTicketIssuedTime">
+        UPDATE ticket_order
+        SET ticket_issued_time = #{issueTime},
+            update_time = #{issueTime}
+        WHERE order_id = #{orderId}
+          AND order_status = 'WAIT_USE'
+    </update>
+
+    <update id="markOrderTicketsError">
+        UPDATE electronic_ticket
+        SET ticket_status = 'ERROR',
+            qr_code_value = NULL,
+            generate_time = NULL,
+            check_time = NULL,
+            expire_time = NULL,
+            abnormal_reason = #{abnormalReason},
+            update_time = #{updateTime}
+        WHERE order_id = #{orderId}
+          AND ticket_status IN ('GENERATING', 'UNUSED')
+    </update>
+
+    <update id="retryOrderTickets">
+        UPDATE electronic_ticket
+        SET ticket_status = 'GENERATING',
+            qr_code_value = NULL,
+            generate_time = NULL,
+            check_time = NULL,
+            expire_time = NULL,
+            abnormal_reason = NULL,
+            update_time = #{updateTime}
+        WHERE order_id = #{orderId}
+          AND ticket_status = 'ERROR'
+    </update>
+
+    <select id="countCheckedTickets" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM electronic_ticket
+        WHERE order_id = #{orderId}
+          AND ticket_status = 'CHECKED'
+    </select>
+
+    <select id="countErrorTicketsByOrderId" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM electronic_ticket
+        WHERE order_id = #{orderId}
+          AND ticket_status = 'ERROR'
+    </select>
+
+    <select id="countRefundRecordByOrderId" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM refund_record
+        WHERE order_id = #{orderId}
+    </select>
+
+    <update id="expireOrderTicketsForRefund">
+        UPDATE electronic_ticket
+        SET ticket_status = 'EXPIRED',
+            qr_code_value = NULL,
+            check_time = NULL,
+            expire_time = #{expireTime},
+            abnormal_reason = #{abnormalReason},
+            update_time = #{expireTime}
+        WHERE order_id = #{orderId}
+          AND ticket_status IN ('GENERATING', 'ERROR', 'UNUSED')
+    </update>
+
+    <insert id="insertSystemRefundRecord"
+            parameterType="com.example.maimaibackend.dto.ticket.IssueFailedRefundInsertDTO"
+            useGeneratedKeys="true"
+            keyProperty="refundId"
+            keyColumn="refund_id">
+        INSERT INTO refund_record
+        (refund_no, order_id, refund_rule_id, matched_stage_id,
+         refund_type_snapshot, fee_rate_snapshot, apply_time, reason,
+         refund_amount, fee_amount, refund_status, refund_time, fail_reason, update_time)
+        VALUES
+        (#{refundNo}, #{orderId}, NULL, NULL,
+         #{refundTypeSnapshot}, NULL, #{applyTime}, #{reason},
+         #{refundAmount}, #{feeAmount}, #{refundStatus}, #{refundTime}, NULL, #{updateTime})
+    </insert>
+
+    <update id="updateOrderRefundSuccess">
+        UPDATE ticket_order
+        SET order_status = 'REFUND_SUCCESS',
+            update_time = #{updateTime}
+        WHERE order_id = #{orderId}
+          AND order_status = 'WAIT_USE'
+    </update>
+
+    <sql id="TicketVerifyColumns">
+        t.ticket_id AS ticketId,
+        t.ticket_no AS ticketNo,
+        t.ticket_status AS ticketStatus,
+        t.seat_info AS seatInfo,
+        t.check_time AS checkTime,
+        o.order_id AS orderId,
+        o.order_no AS orderNo,
+        o.order_status AS orderStatus,
+        p.title AS projectTitle,
+        o.session_id AS sessionId,
+        s.city_name AS cityName,
+        s.station_name AS stationName,
+        v.venue_name AS venueName,
+        v.address AS venueAddress,
+        s.start_time AS startTime,
+        oa.real_name AS audienceName,
+        oa.certificate_type AS certificateType,
+        oa.certificate_no AS certificateNo
+    </sql>
+
+    <select id="selectTicketByCode" resultType="com.example.maimaibackend.vo.admin.AdminTicketVerifyVO">
+        SELECT
+        <include refid="TicketVerifyColumns"/>
+        <include refid="TicketJoins"/>
+        WHERE t.ticket_no = #{code}
+           OR t.qr_code_value = #{code}
+        ORDER BY t.ticket_id ASC
+        LIMIT 1
+    </select>
+
+    <select id="selectTicketByCodeForUpdate" resultType="com.example.maimaibackend.vo.admin.AdminTicketVerifyVO">
+        SELECT
+        <include refid="TicketVerifyColumns"/>
+        <include refid="TicketJoins"/>
+        WHERE t.ticket_no = #{code}
+           OR t.qr_code_value = #{code}
+        ORDER BY t.ticket_id ASC
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <update id="checkTicket">
+        UPDATE electronic_ticket
+        SET ticket_status = 'CHECKED',
+            check_time = #{checkTime},
+            update_time = #{checkTime}
+        WHERE ticket_id = #{ticketId}
+          AND ticket_status = 'UNUSED'
+    </update>
+
+    <update id="finishOrderIfAllTicketsChecked">
+        UPDATE ticket_order o
+        SET o.order_status = 'FINISHED',
+            o.finish_time = #{finishTime},
+            o.update_time = #{finishTime}
+        WHERE o.order_id = #{orderId}
+          AND o.order_status = 'WAIT_USE'
+          AND EXISTS (
+              SELECT 1 FROM electronic_ticket t WHERE t.order_id = o.order_id
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM electronic_ticket t
+              WHERE t.order_id = o.order_id
+                AND t.ticket_status &lt;&gt; 'CHECKED'
+          )
+    </update>
+
+    <sql id="CheckRecordWhere">
+        WHERE t.ticket_status = 'CHECKED'
+        <if test="keyword != null and keyword != ''">
+            AND (
+                t.ticket_no LIKE CONCAT('%', #{keyword}, '%')
+                OR o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                OR p.title LIKE CONCAT('%', #{keyword}, '%')
+                OR oa.real_name LIKE CONCAT('%', #{keyword}, '%')
+                OR oa.certificate_no LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        <if test="projectId != null">
+            AND o.project_id = #{projectId}
+        </if>
+        <if test="sessionId != null">
+            AND o.session_id = #{sessionId}
+        </if>
+        <if test="dateFrom != null and dateFrom != ''">
+            AND t.check_time &gt;= CONCAT(#{dateFrom}, ' 00:00:00')
+        </if>
+        <if test="dateTo != null and dateTo != ''">
+            AND t.check_time &lt;= CONCAT(#{dateTo}, ' 23:59:59')
+        </if>
+    </sql>
+
+    <select id="countCheckRecords" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        <include refid="TicketJoins"/>
+        <include refid="CheckRecordWhere"/>
+    </select>
+
+    <select id="selectCheckRecords" resultType="com.example.maimaibackend.vo.admin.AdminTicketItemVO">
+        SELECT
+        <include refid="TicketItemColumns"/>
+        <include refid="TicketJoins"/>
+        <include refid="CheckRecordWhere"/>
+        ORDER BY t.check_time DESC, t.ticket_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+</mapper>

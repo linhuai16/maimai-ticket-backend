@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<header class="admin-header" th:fragment="header(pageTitle, adminUser)">
+    <div class="header-left">
+        <button class="icon-button sidebar-toggle" type="button" aria-label="切换侧边栏">☰</button>
+        <div>
+            <h1 th:text="${pageTitle}">页面标题</h1>
+            <p>麦麦票务后台管理系统</p>
+        </div>
+    </div>
+    <div class="header-user">
+        <span class="user-avatar" th:text="${#strings.substring(adminUser.nickname, 0, 1)}">管</span>
+        <span class="user-copy">
+            <strong th:text="${adminUser.nickname}">管理员</strong>
+            <small th:text="${adminUser.username}">admin</small>
+        </span>
+        <form th:action="@{/admin/logout}" method="post">
+            <button class="button button-ghost button-small" type="submit">退出</button>
+        </form>
+    </div>
+</header>
+</body>
+</html>

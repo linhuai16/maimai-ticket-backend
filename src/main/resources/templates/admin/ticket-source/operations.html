@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('回调、对账与网关日志')}"></head>
+<body>
+<div class="admin-app">
+<aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+<div class="admin-main">
+<header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+
+<main class="page-content ticket-source-page ts-operations-page" data-ts-page="operations">
+<section class="page-heading"><div><p class="breadcrumb">第三方票源 / 回调与对账</p><h2>回调、对账与网关日志</h2><p>回调用于触发事实补查；对账比较麦麦与 Provider 的订单/退款/票状态。对账完成后，财务金额再进入独立“账期结算”，两者不能混为一体。</p></div></section>
+<section class="dashboard-grid ts-operations-grid">
+<div class="panel"><div class="panel-header"><div><h3>回调事件</h3><p>失败事件可单条处理或批量补偿。</p></div><button class="button button-secondary" id="tsProcessCallbacks" type="button">处理 Pending</button></div><div class="panel-body"><form id="tsCallbackFilterForm" class="ts-inline-form"><select id="tsCallbackStatus"><option value="">全部状态</option><option>PENDING</option><option>PROCESSING</option><option>SUCCESS</option><option>FAILED</option></select><button class="button button-small button-secondary" type="submit">刷新</button></form><div class="table-wrap"><table class="data-table compact-table ts-callback-table"><thead><tr><th>ID</th><th>Provider</th><th>事件</th><th>资源</th><th>状态</th><th>错误</th><th>操作</th></tr></thead><tbody id="tsCallbacksBody"></tbody></table></div></div></div>
+<div class="panel"><div class="panel-header"><div><h3>指定订单对账</h3><p>一行一个 orderId 或使用逗号分隔。</p></div></div><div class="panel-body"><form id="tsReconcileForm" class="ts-stack-form"><label class="field"><span>Provider</span><select id="tsReconcileProvider"></select></label><label class="field"><span>订单 IDs</span><textarea id="tsReconcileOrderIds" rows="5" placeholder="500071, 500073"></textarea></label><button class="button button-primary" type="submit">运行对账</button></form><pre class="ts-json ts-json-small" id="tsReconcileResult">暂无结果</pre></div></div>
+</section>
+<section class="panel table-panel ts-section-gap"><div class="panel-header"><div><h3>对账批次</h3><p>点击详情查看差异类型。</p></div><button class="button button-secondary" id="tsRefreshReconciliations" type="button">刷新</button></div><div class="table-wrap"><table class="data-table ts-reconciliation-table"><thead><tr><th>批次</th><th>Provider</th><th>状态</th><th>总数</th><th>匹配</th><th>差异</th><th>错误</th><th>时间</th><th>操作</th></tr></thead><tbody id="tsReconciliationsBody"></tbody></table></div></section>
+<section class="panel table-panel ts-section-gap"><div class="panel-header"><div><h3>网关调用日志</h3><p>只展示 requestId、operation、错误码和耗时，不展示凭证秘钥。</p></div><form id="tsGatewayLogFilter" class="ts-inline-form"><select id="tsLogProvider"></select><input id="tsLogOperation" placeholder="operationCode"><select id="tsLogSuccess"><option value="">全部</option><option value="true">成功</option><option value="false">失败</option></select><button class="button button-small button-secondary" type="submit">查询</button></form></div><div class="table-wrap"><table class="data-table ts-gateway-log-table"><thead><tr><th>时间</th><th>Provider</th><th>Operation</th><th>结果</th><th>错误码</th><th>重试</th><th>耗时</th><th>消息</th></tr></thead><tbody id="tsGatewayLogsBody"></tbody></table></div></section>
+<div class="panel ts-section-gap"><pre class="ts-json" id="tsOperationsResult">点击回调/对账详情查看</pre></div>
+</main>
+</div></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/ticket-source-console.js(v='b12r6-width')}"></script>
+</body></html>

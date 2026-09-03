@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('管理员登录')}"></head>
+<body class="login-body">
+<main class="login-shell">
+    <section class="login-hero">
+        <div class="login-hero-content">
+            <span class="eyebrow">MAIMAI TICKETING</span>
+            <h1>让每一场演出<br>稳定抵达观众。</h1>
+            <p>统一管理演出、订单、运营配置和电子票务流程。</p>
+            <div class="hero-stat-grid">
+                <div><strong>项目</strong><span>演出与场次维护</span></div>
+                <div><strong>交易</strong><span>订单与退款处理</span></div>
+                <div><strong>票务</strong><span>出票与检票管理</span></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="login-panel">
+        <form class="login-card" th:action="@{/admin/login}" method="post" autocomplete="on">
+            <input type="hidden" name="redirect" th:value="${redirect}">
+            <div class="login-brand">
+                <span class="brand-mark large">M</span>
+                <div><strong>麦麦票务</strong><small>运营管理后台</small></div>
+            </div>
+            <div class="login-title">
+                <h2>管理员登录</h2>
+                <p>输入后台账号和密码继续</p>
+            </div>
+
+            <div class="alert alert-error" th:if="${error}" th:text="${error}">账号或密码错误</div>
+
+            <label class="field">
+                <span>管理员账号</span>
+                <input type="text" name="username" th:value="${username}" maxlength="50"
+                       placeholder="请输入管理员账号" autocomplete="username" required autofocus>
+            </label>
+            <label class="field">
+                <span>密码</span>
+                <input type="password" name="password" placeholder="请输入密码"
+                       autocomplete="current-password" required>
+            </label>
+            <button class="button button-primary button-block button-large" type="submit">登录后台</button>
+
+        </form>
+    </section>
+</main>
+</body>
+</html>

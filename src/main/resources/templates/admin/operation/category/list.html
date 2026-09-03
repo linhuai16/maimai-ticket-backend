@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('演出分类')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content">
+            <section class="page-heading"><div><p class="breadcrumb">运营配置 / 演出分类</p><h2>固定分类配置</h2><p>平台固定演出分类。</p></div><button class="button button-secondary" id="categoryRefreshButton" type="button">刷新</button></section>
+            <section class="panel table-panel">
+                <div class="panel-header table-header"><div><h3>分类数据</h3><p id="categoryTotalText">正在读取...</p></div><span class="table-meta">固定字典，只读</span></div>
+                <div class="table-wrap"><table class="data-table operation-table"><thead><tr><th>分类</th><th>分类编码</th><th>项目数</th><th>展示排序</th><th class="align-right">操作</th></tr></thead><tbody id="categoryTableBody"><tr><td colspan="5"><div class="table-empty">正在加载分类数据...</div></td></tr></tbody></table></div>
+            </section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/category.js}"></script>
+</body>
+</html>

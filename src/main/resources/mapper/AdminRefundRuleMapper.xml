@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminRefundRuleMapper">
+
+    <sql id="RefundRuleWhereSql">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND p.title LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="refundType != null and refundType != ''">
+                <choose>
+                    <when test="refundType == 'MISSING'">
+                        AND rr.refund_rule_id IS NULL
+                    </when>
+                    <otherwise>
+                        AND rr.refund_type = #{refundType}
+                    </otherwise>
+                </choose>
+            </if>
+        </where>
+    </sql>
+
+    <select id="countRefundRuleList" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM performance_project p
+        LEFT JOIN refund_rule rr ON rr.project_id = p.project_id
+        <include refid="RefundRuleWhereSql"/>
+    </select>
+
+    <select id="selectRefundRuleList" resultType="com.example.maimaibackend.vo.admin.AdminRefundRuleItemVO">
+        SELECT
+            rr.refund_rule_id AS refundRuleId,
+            rr.project_id AS projectId,
+            p.title AS projectTitle,
+            p.project_status AS projectStatus,
+            rr.refund_type AS refundType,
+            IFNULL(stage_stat.stage_count, 0) AS stageCount,
+            stage_stat.min_fee_rate AS minFeeRate,
+            stage_stat.max_fee_rate AS maxFeeRate,
+            rr.create_time AS createTime,
+            rr.update_time AS updateTime
+        FROM performance_project p
+        LEFT JOIN refund_rule rr ON rr.project_id = p.project_id
+        LEFT JOIN (
+            SELECT
+                refund_rule_id,
+                COUNT(*) AS stage_count,
+                MIN(fee_rate) AS min_fee_rate,
+                MAX(fee_rate) AS max_fee_rate
+            FROM refund_rule_stage
+            GROUP BY refund_rule_id
+        ) stage_stat ON stage_stat.refund_rule_id = rr.refund_rule_id
+        <include refid="RefundRuleWhereSql"/>
+        ORDER BY rr.update_time DESC, rr.refund_rule_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countProjectById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM performance_project WHERE project_id = #{projectId}
+    </select>
+
+    <select id="selectRefundRuleDetailByProjectId" resultType="com.example.maimaibackend.vo.admin.AdminRefundRuleDetailVO">
+        SELECT
+            rr.refund_rule_id AS refundRuleId,
+            p.project_id AS projectId,
+            p.title AS projectTitle,
+            p.project_status AS projectStatus,
+            rr.refund_type AS refundType,
+            rr.source_provider_id AS sourceProviderId,
+            rr.provider_rule_id AS providerRuleId,
+            rr.rule_description AS ruleDescription,
+            rr.consumer_entry_enabled AS consumerEntryEnabled,
+            rr.delivery_fee_refundable AS deliveryFeeRefundable,
+            rr.create_time AS createTime,
+            rr.update_time AS updateTime
+        FROM performance_project p
+        LEFT JOIN refund_rule rr ON rr.project_id = p.project_id
+        WHERE p.project_id = #{projectId}
+        LIMIT 1
+    </select>
+
+    <select id="selectRefundRuleStages" resultType="com.example.maimaibackend.vo.admin.AdminRefundRuleStageVO">
+        SELECT
+            stage_id AS stageId,
+            refund_rule_id AS refundRuleId,
+            min_before_start_minutes AS minBeforeStartMinutes,
+            max_before_start_minutes AS maxBeforeStartMinutes,
+            stage_result AS stageResult,
+            fee_rate AS feeRate,
+            fixed_fee_amount AS fixedFeeAmount,
+            sort_order AS sortOrder
+        FROM refund_rule_stage
+        WHERE refund_rule_id = #{refundRuleId}
+        ORDER BY sort_order ASC, stage_id ASC
+    </select>
+
+</mapper>

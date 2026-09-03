@@ -1,0 +1,18 @@
+package com.example.maimaibackend.ticketsource.provider.adapter;
+
+public enum V11ErrorCode {
+    CONFIGURATION_ERROR,
+    INVALID_REQUEST,
+    UNAUTHORIZED,
+    RESOURCE_NOT_FOUND,
+    NOT_SALEABLE,
+    INSUFFICIENT_STOCK,
+    PRICE_CHANGED,
+    DUPLICATE_ORDER,
+    STATUS_CONFLICT,
+    RATE_LIMITED,
+    TIMEOUT,
+    PROVIDER_ERROR,
+    UNSUPPORTED_OPERATION,
+    INVALID_PROVIDER_RESPONSE
+}

@@ -1,0 +1,20 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main id="refundRuleDetailPage" class="page-content" th:attr="data-project-id=${projectId}">
+            <section class="page-heading"><div><p class="breadcrumb">运营配置 / 退款规则 / 查看</p><h2>退款规则详情</h2><p>查看退款政策和退款阶梯。</p></div><a class="button button-secondary" th:href="@{/admin/operation/refund-rules}">返回列表</a></section>
+            <section class="panel form-panel"><div class="panel-header"><div><h3>退款规则</h3></div><span class="status-badge">只读</span></div><div id="refundRuleDetailContent" class="form-section"><div class="table-empty">正在读取退款规则...</div></div></section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/refund-rule.js}"></script>
+</body>
+</html>

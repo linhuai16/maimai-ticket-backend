@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('履约监控')}"></head>
+<body>
+<div class="admin-app">
+<aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+<div class="admin-main">
+<header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+
+<main class="page-content ticket-source-page" data-ts-page="fulfillment">
+<section class="page-heading"><div><p class="breadcrumb">第三方票源 / 履约监控</p><h2>履约监控与异常补偿</h2><p>正常出票、票码和纸票物流由系统自动通过 Adapter 同步。管理员不逐单手工履约。正常任务由定时任务/Callback 自动推进；只有等待供应商状态或异常任务才允许同步状态/重试。页面不会为已退款、已取消、已完成订单提供履约按钮。</p></div><div class="filter-actions"><button class="button button-secondary" id="tsProcessIssueDue" type="button">手动触发自动任务扫描</button><button class="button button-secondary" id="tsSyncShipmentPending" type="button">同步待更新物流</button></div></section>
+<section class="panel filter-panel"><form id="tsIssueFilterForm" class="filter-grid"><label class="field compact"><span>出票任务状态</span><select id="tsIssueStatus"><option value="">全部</option><option>PENDING</option><option>WAIT_PROVIDER</option><option>PROCESSING</option><option>RETRY_WAIT</option><option>PARTIAL</option><option>SUCCESS</option><option>FAILED</option><option>MANUAL_REVIEW</option><option>STOPPED</option></select></label><label class="field compact"><span>条数</span><select id="tsIssueLimit"><option>50</option><option selected>100</option><option>200</option></select></label><div class="filter-actions"><button class="button button-primary" type="submit">刷新履约任务</button></div></form></section>
+<section class="panel table-panel"><div class="panel-header"><div><h3>自动履约任务监控</h3></div></div><div class="table-wrap"><table class="data-table ts-fulfillment-table"><thead><tr><th>订单</th><th>Provider</th><th>任务状态</th><th>出票结果</th><th>重试</th><th>下次执行</th><th>异常</th><th class="align-right">操作</th></tr></thead><tbody id="tsIssuesBody"></tbody></table></div></section>
+<section class="panel filter-panel ts-section-gap"><form id="tsShipmentFilterForm" class="filter-grid"><label class="field compact"><span>物流状态</span><select id="tsShipmentStatus"><option value="">全部</option><option>WAIT_SHIPMENT</option><option>SHIPPED</option><option>IN_TRANSIT</option><option>DELIVERED</option><option>EXCEPTION</option><option>RETURNED</option><option>NOT_REQUIRED</option></select></label><label class="field compact"><span>条数</span><select id="tsShipmentLimit"><option>50</option><option selected>100</option><option>200</option></select></label><div class="filter-actions"><button class="button button-primary" type="submit">刷新物流</button></div></form></section>
+<section class="panel table-panel"><div class="panel-header"><div><h3>纸质票物流</h3></div></div><div class="table-wrap"><table class="data-table ts-shipment-table"><thead><tr><th>订单</th><th>Provider</th><th>物流状态</th><th>承运商</th><th>运单号</th><th>发货/签收</th><th>同步</th><th>异常</th><th class="align-right">操作</th></tr></thead><tbody id="tsShipmentsBody"></tbody></table></div></section>
+<div class="panel ts-section-gap"><pre class="ts-json" id="tsFulfillmentResult">暂无操作结果</pre></div>
+</main>
+</div></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/ticket-source-console.js(v='b12r6-width')}"></script>
+</body></html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div class="rich-text-editor"
+     data-rich-text-editor
+     th:fragment="editor(inputId, imageBusinessType, videoBusinessType, placeholderText)"
+     th:attr="data-input-id=${inputId},data-image-business-type=${imageBusinessType},data-video-business-type=${videoBusinessType}">
+    <div class="rich-text-toolbar" role="toolbar" aria-label="富文本工具栏">
+        <select class="rich-text-format" data-rich-format aria-label="段落格式">
+            <option value="p">正文</option>
+            <option value="h2">二级标题</option>
+            <option value="h3">三级标题</option>
+            <option value="h4">四级标题</option>
+            <option value="blockquote">引用</option>
+        </select>
+        <span class="rich-text-toolbar-group">
+            <button type="button" data-rich-command="undo" title="撤销">↶</button>
+            <button type="button" data-rich-command="redo" title="重做">↷</button>
+        </span>
+        <span class="rich-text-toolbar-group">
+            <button type="button" data-rich-command="bold" title="加粗"><strong>B</strong></button>
+            <button type="button" data-rich-command="italic" title="斜体"><em>I</em></button>
+            <button type="button" data-rich-command="underline" title="下划线"><u>U</u></button>
+            <button type="button" data-rich-command="strikeThrough" title="删除线"><s>S</s></button>
+        </span>
+        <span class="rich-text-toolbar-group">
+            <button type="button" data-rich-command="insertUnorderedList" title="无序列表">• 列表</button>
+            <button type="button" data-rich-command="insertOrderedList" title="有序列表">1. 列表</button>
+        </span>
+        <span class="rich-text-toolbar-group">
+            <button type="button" data-rich-action="link" title="插入链接">链接</button>
+            <button type="button" data-rich-command="unlink" title="取消链接">取消链接</button>
+        </span>
+        <span class="rich-text-toolbar-group">
+            <button type="button" data-rich-action="image" title="插入图片">插入图片</button>
+            <button type="button" data-rich-action="video" title="插入视频">插入视频</button>
+        </span>
+        <span class="rich-text-toolbar-group">
+            <button type="button" data-rich-command="removeFormat" title="清除选中文本格式">清除格式</button>
+            <button type="button" data-rich-action="clear" title="清空全部内容">清空</button>
+        </span>
+    </div>
+    <div class="rich-text-surface"
+         contenteditable="true"
+         spellcheck="true"
+         role="textbox"
+         aria-multiline="true"
+         th:attr="data-placeholder=${placeholderText}"></div>
+    <textarea th:id="${inputId}" th:name="${inputId}" hidden></textarea>
+    <div class="rich-text-footer">
+        <small>支持标题、段落、列表、链接、图片和视频；粘贴内容将按纯文本处理。</small>
+        <small data-rich-counter>0 字 · 0 个媒体</small>
+    </div>
+</div>
+</body>
+</html>

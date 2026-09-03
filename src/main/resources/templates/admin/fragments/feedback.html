@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div th:fragment="feedback">
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+    <div id="confirmModal" class="modal-backdrop" hidden>
+        <div class="modal-card modal-small" role="dialog" aria-modal="true" aria-labelledby="confirmTitle">
+            <div class="modal-header">
+                <h3 id="confirmTitle">请确认</h3>
+                <button class="icon-button" id="confirmClose" type="button" aria-label="关闭">×</button>
+            </div>
+            <div class="modal-body">
+                <p id="confirmMessage">确认执行此操作吗？</p>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary" id="confirmCancel" type="button">取消</button>
+                <button class="button button-primary" id="confirmOk" type="button">确认</button>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

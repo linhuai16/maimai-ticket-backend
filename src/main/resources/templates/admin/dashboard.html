@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('数据概览')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content">
+            <section class="welcome-banner">
+                <div>
+                    <span class="eyebrow">TODAY OVERVIEW</span>
+                    <h2 th:text="'欢迎回来，' + ${adminUser.nickname}">欢迎回来，管理员</h2>
+                    <p>这里汇总当前演出、交易、库存和用户数据。</p>
+                </div>
+                <a class="button button-light" th:href="@{/admin/performances/projects}">进入演出管理</a>
+            </section>
+
+            <section class="metric-grid">
+                <article class="metric-card">
+                    <span class="metric-icon">演</span>
+                    <div><p>演出项目</p><strong th:text="${summary.totalProjectCount}">0</strong></div>
+                    <small><b th:text="${summary.onSaleProjectCount}">0</b> 个在售</small>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-icon">单</span>
+                    <div><p>累计订单</p><strong th:text="${summary.orderCount}">0</strong></div>
+                    <small>今日新增 <b th:text="${summary.todayOrderCount}">0</b></small>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-icon">¥</span>
+                    <div><p>累计支付金额</p><strong th:text="'¥' + ${#numbers.formatDecimal(summary.paidOrderAmount, 1, 2)}">¥0.00</strong></div>
+                    <small>今日 <b th:text="'¥' + ${#numbers.formatDecimal(summary.todayPaidAmount, 1, 2)}">¥0.00</b></small>
+                </article>
+                <article class="metric-card">
+                    <span class="metric-icon">用</span>
+                    <div><p>注册用户</p><strong th:text="${summary.userCount}">0</strong></div>
+                    <small>平台用户总量</small>
+                </article>
+            </section>
+
+            <section class="dashboard-grid">
+                <article class="panel">
+                    <div class="panel-header">
+                        <div><h3>订单状态</h3><p>各交易阶段的订单数量</p></div>
+                        <a class="text-link" th:href="@{/admin/orders}">查看订单 →</a>
+                    </div>
+                    <div class="status-list">
+                        <div class="status-row"><span><i class="dot warning"></i>待支付</span><strong th:text="${summary.waitPayOrderCount}">0</strong></div>
+                        <div class="status-row"><span><i class="dot info"></i>待使用</span><strong th:text="${summary.waitUseOrderCount}">0</strong></div>
+                        <div class="status-row"><span><i class="dot success"></i>已完成</span><strong th:text="${summary.finishedOrderCount}">0</strong></div>
+                        <div class="status-row"><span><i class="dot danger"></i>退款中</span><strong th:text="${summary.refundingOrderCount}">0</strong></div>
+                        <div class="status-row"><span><i class="dot muted"></i>退款成功</span><strong th:text="${summary.refundSuccessOrderCount}">0</strong></div>
+                    </div>
+                </article>
+
+                <article class="panel">
+                    <div class="panel-header">
+                        <div><h3>票务库存</h3><p>票档库存与销售情况</p></div>
+                        <a class="text-link" th:href="@{/admin/performances/skus}">查看票档 →</a>
+                    </div>
+                    <div class="inventory-summary">
+                        <div><span>票档数量</span><strong th:text="${summary.skuCount}">0</strong></div>
+                        <div><span>可售库存</span><strong th:text="${summary.stockAvailableCount}">0</strong></div>
+                        <div><span>锁定库存</span><strong th:text="${summary.stockLockedCount}">0</strong></div>
+                        <div><span>已售数量</span><strong th:text="${summary.soldCount}">0</strong></div>
+                    </div>
+                </article>
+
+                <article class="panel panel-wide">
+                    <div class="panel-header">
+                        <div><h3>演出资源</h3><p>项目、场次与推荐状态</p></div>
+                    </div>
+                    <div class="resource-strip">
+                        <div><span>全部项目</span><strong th:text="${summary.totalProjectCount}">0</strong></div>
+                        <div><span>在售项目</span><strong th:text="${summary.onSaleProjectCount}">0</strong></div>
+                        <div><span>即将开售</span><strong th:text="${summary.comingSoonProjectCount}">0</strong></div>
+                        <div><span>全部场次</span><strong th:text="${summary.sessionCount}">0</strong></div>
+                        <div><span>在售场次</span><strong th:text="${summary.onSaleSessionCount}">0</strong></div>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+</body>
+</html>

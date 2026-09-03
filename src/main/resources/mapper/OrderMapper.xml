@@ -1,0 +1,312 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.OrderMapper">
+
+    <sql id="OrderConfirmBaseColumns">
+        SELECT
+            p.project_id AS projectId,
+            p.title AS title,
+            p.poster_url AS posterUrl,
+            p.project_status AS projectStatus,
+            s.session_id AS sessionId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.start_time AS startTime,
+            s.session_status AS sessionStatus,
+            s.limit_per_order AS limitPerOrder,
+            s.delivery_type AS deliveryType,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            sku.sku_id AS skuId,
+            sku.sku_name AS skuName,
+            sku.price AS unitPrice,
+            sku.stock_available AS stockAvailable,
+            sku.sku_status AS skuStatus,
+            sku.inventory_authority AS inventoryAuthority
+        FROM performance_project p
+        JOIN performance_session s ON s.project_id = p.project_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        JOIN ticket_sku sku ON sku.project_id = p.project_id AND sku.session_id = s.session_id
+        WHERE p.project_id = #{projectId}
+          AND s.session_id = #{sessionId}
+          AND sku.sku_id = #{skuId}
+        LIMIT 1
+    </sql>
+
+    <select id="selectOrderConfirmBase"
+            resultType="com.example.maimaibackend.dto.order.OrderConfirmBaseDTO">
+        <include refid="OrderConfirmBaseColumns" />
+    </select>
+
+    <select id="selectOrderConfirmBaseForUpdate"
+            resultType="com.example.maimaibackend.dto.order.OrderConfirmBaseDTO">
+        SELECT
+            p.project_id AS projectId,
+            p.title AS title,
+            p.poster_url AS posterUrl,
+            p.project_status AS projectStatus,
+            s.session_id AS sessionId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.start_time AS startTime,
+            s.session_status AS sessionStatus,
+            s.limit_per_order AS limitPerOrder,
+            s.delivery_type AS deliveryType,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            sku.sku_id AS skuId,
+            sku.sku_name AS skuName,
+            sku.price AS unitPrice,
+            sku.stock_available AS stockAvailable,
+            sku.sku_status AS skuStatus,
+            sku.inventory_authority AS inventoryAuthority
+        FROM performance_project p
+        JOIN performance_session s ON s.project_id = p.project_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        JOIN ticket_sku sku ON sku.project_id = p.project_id AND sku.session_id = s.session_id
+        WHERE p.project_id = #{projectId}
+          AND s.session_id = #{sessionId}
+          AND sku.sku_id = #{skuId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectOrderServiceTags"
+            resultType="com.example.maimaibackend.vo.performance.ServiceTagVO">
+        SELECT
+            t.tag_id AS tagId,
+            t.tag_name AS tagName,
+            t.description AS description,
+            r.sort_order AS sortOrder
+        FROM project_service_tag_rel r
+        JOIN service_tag t ON t.tag_id = r.tag_id
+        WHERE r.project_id = #{projectId}
+          AND t.tag_name NOT IN ('条件退', '不可退')
+
+        UNION ALL
+
+        SELECT
+            t.tag_id AS tagId,
+            t.tag_name AS tagName,
+            COALESCE(NULLIF(rr.rule_description, ''), t.description) AS description,
+            99 AS sortOrder
+        FROM refund_rule rr
+        JOIN service_tag t ON (
+            (rr.refund_type = 'CONDITIONAL_REFUND' AND t.tag_name = '条件退')
+            OR (rr.refund_type = 'NO_REFUND' AND t.tag_name = '不可退')
+        )
+        WHERE rr.project_id = #{projectId}
+
+        ORDER BY sortOrder ASC, tagId ASC
+    </select>
+
+    <select id="selectOrderRefundServiceTagDetailItems" resultType="java.lang.String">
+        SELECT CONCAT(
+            CASE
+                WHEN rs.max_before_start_minutes IS NULL THEN CONCAT('演出开始前',
+                    CASE
+                        WHEN MOD(rs.min_before_start_minutes, 1440) = 0 THEN CONCAT(rs.min_before_start_minutes DIV 1440, '天')
+                        WHEN MOD(rs.min_before_start_minutes, 60) = 0 THEN CONCAT(rs.min_before_start_minutes DIV 60, '小时')
+                        ELSE CONCAT(rs.min_before_start_minutes, '分钟')
+                    END, '及以上')
+                WHEN rs.min_before_start_minutes = 0 THEN CONCAT('演出开始前',
+                    CASE
+                        WHEN MOD(rs.max_before_start_minutes, 1440) = 0 THEN CONCAT(rs.max_before_start_minutes DIV 1440, '天')
+                        WHEN MOD(rs.max_before_start_minutes, 60) = 0 THEN CONCAT(rs.max_before_start_minutes DIV 60, '小时')
+                        ELSE CONCAT(rs.max_before_start_minutes, '分钟')
+                    END, '内')
+                ELSE CONCAT('演出开始前',
+                    CASE
+                        WHEN MOD(rs.min_before_start_minutes, 1440) = 0 THEN CONCAT(rs.min_before_start_minutes DIV 1440, '天')
+                        WHEN MOD(rs.min_before_start_minutes, 60) = 0 THEN CONCAT(rs.min_before_start_minutes DIV 60, '小时')
+                        ELSE CONCAT(rs.min_before_start_minutes, '分钟')
+                    END, '至',
+                    CASE
+                        WHEN MOD(rs.max_before_start_minutes, 1440) = 0 THEN CONCAT(rs.max_before_start_minutes DIV 1440, '天')
+                        WHEN MOD(rs.max_before_start_minutes, 60) = 0 THEN CONCAT(rs.max_before_start_minutes DIV 60, '小时')
+                        ELSE CONCAT(rs.max_before_start_minutes, '分钟')
+                    END)
+            END,
+            '：',
+            CASE rs.stage_result
+                WHEN 'FREE' THEN '免费退票'
+                WHEN 'FEE_PERCENT' THEN CONCAT('收取', CAST(ROUND(IFNULL(rs.fee_rate, 0) * 100, 2) AS CHAR), '%手续费')
+                WHEN 'FEE_FIXED' THEN CONCAT('收取￥', CAST(IFNULL(rs.fixed_fee_amount, 0) AS CHAR), '手续费')
+                WHEN 'NOT_ALLOWED' THEN '不可退票'
+                ELSE '以项目退款规则为准'
+            END
+        )
+        FROM refund_rule rr
+        JOIN refund_rule_stage rs ON rs.refund_rule_id = rr.refund_rule_id
+        WHERE rr.project_id = #{projectId}
+          AND rr.refund_type = 'CONDITIONAL_REFUND'
+        ORDER BY rs.sort_order ASC, rs.stage_id ASC
+    </select>
+
+    <select id="countUserById" resultType="int">
+        SELECT COUNT(*)
+        FROM user_account
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectAudienceSnapshots"
+            resultType="com.example.maimaibackend.dto.order.OrderAudienceSnapshotDTO">
+        SELECT
+            audience_id AS audienceId,
+            real_name AS realName,
+            certificate_type AS certificateType,
+            certificate_no AS certificateNo,
+            certificate_no_hash AS certificateNoHash,
+            phone AS phone
+        FROM audience
+        WHERE user_id = #{userId}
+          AND audience_id IN
+        <foreach collection="audienceIds" item="audienceId" open="(" separator="," close=")">
+            #{audienceId}
+        </foreach>
+        ORDER BY FIELD(audience_id,
+        <foreach collection="audienceIds" item="audienceId" separator=",">
+            #{audienceId}
+        </foreach>
+        )
+    </select>
+
+    <select id="countExistingAudienceBySessionAndCertHashes" resultType="int">
+        SELECT COUNT(*)
+        FROM ticket_order o
+        JOIN order_audience oa ON oa.order_id = o.order_id
+        WHERE o.session_id = #{sessionId}
+          AND o.order_status NOT IN ('CANCELED', 'REFUND_SUCCESS')
+          AND oa.certificate_no_hash IN
+        <foreach collection="certificateNoHashes" item="certificateNoHash" open="(" separator="," close=")">
+            #{certificateNoHash}
+        </foreach>
+    </select>
+
+    <select id="selectAddressSnapshot"
+            resultType="com.example.maimaibackend.dto.order.OrderAddressSnapshotDTO">
+        SELECT
+            address_id AS addressId,
+            receiver_name AS receiverName,
+            receiver_phone AS receiverPhone,
+            province AS province,
+            city AS city,
+            district AS district,
+            country_code AS countryCode,
+            province_code AS provinceCode,
+            city_code AS cityCode,
+            area_code AS areaCode,
+            detail_address AS detailAddress
+        FROM user_address
+        WHERE user_id = #{userId}
+          AND address_id = #{addressId}
+        LIMIT 1
+    </select>
+
+    <update id="lockSkuStock">
+        UPDATE ticket_sku
+        SET stock_available = stock_available - #{quantity},
+            stock_locked = stock_locked + #{quantity},
+            version = version + 1,
+            update_time = NOW()
+        WHERE sku_id = #{skuId}
+          AND sku_status IN ('ON_SALE', 'PRESALE')
+          AND stock_available >= #{quantity}
+    </update>
+
+    <insert id="insertTicketOrder"
+            parameterType="com.example.maimaibackend.dto.order.TicketOrderInsertDTO"
+            useGeneratedKeys="true"
+            keyProperty="orderId">
+        INSERT INTO ticket_order
+        (order_no, user_id, project_id, session_id, order_status, delivery_type, fulfillment_mode,
+         ticket_amount, service_fee_amount, delivery_fee_amount, discount_amount,
+         total_amount, pay_amount, payment_status, pay_method, pay_expire_time, pay_time,
+         cancel_time, ticket_issued_time, finish_time, create_time, update_time)
+        VALUES
+        (#{orderNo}, #{userId}, #{projectId}, #{sessionId}, #{orderStatus}, #{deliveryType}, #{fulfillmentMode},
+         #{ticketAmount}, #{serviceFeeAmount}, #{deliveryFeeAmount}, #{discountAmount},
+         #{totalAmount}, #{payAmount}, #{paymentStatus}, NULL, #{payExpireTime}, NULL,
+         NULL, NULL, NULL, NOW(), NOW())
+    </insert>
+
+    <insert id="insertOrderItem"
+            parameterType="com.example.maimaibackend.dto.order.OrderItemInsertDTO"
+            useGeneratedKeys="true"
+            keyProperty="orderItemId">
+        INSERT INTO order_item
+        (order_id, sku_id, sku_name, unit_price, face_price, provider_sale_price, settlement_price, quantity, subtotal_amount)
+        VALUES
+        (#{orderId}, #{skuId}, #{skuName}, #{unitPrice}, #{facePrice}, #{providerSalePrice}, #{settlementPrice}, #{quantity}, #{subtotalAmount})
+    </insert>
+
+    <insert id="insertOrderAudienceSnapshot">
+        INSERT INTO order_audience
+        (order_id, real_name, certificate_type, certificate_no, certificate_no_hash, phone)
+        VALUES
+        (#{orderId}, #{audience.realName}, #{audience.certificateType}, #{audience.certificateNo},
+         #{audience.certificateNoHash}, #{audience.phone})
+    </insert>
+
+    <insert id="insertOrderAddressSnapshot">
+        INSERT INTO order_address
+        (order_id, receiver_name, receiver_phone, province, city, district,
+         country_code, province_code, city_code, area_code, detail_address)
+        VALUES
+        (#{orderId}, #{address.receiverName}, #{address.receiverPhone}, #{address.province},
+         #{address.city}, #{address.district}, #{address.countryCode}, #{address.provinceCode},
+         #{address.cityCode}, #{address.areaCode}, #{address.detailAddress})
+    </insert>
+
+
+    <select id="selectOrderForCancel"
+            resultType="com.example.maimaibackend.dto.order.CancelOrderBaseDTO">
+        SELECT
+            order_id AS orderId,
+            order_no AS orderNo,
+            user_id AS userId,
+            order_status AS orderStatus,
+            fulfillment_mode AS fulfillmentMode,
+            payment_status AS paymentStatus
+        FROM ticket_order
+        WHERE order_id = #{orderId}
+          AND user_id = #{userId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectOrderItemsForRelease"
+            resultType="com.example.maimaibackend.dto.order.OrderItemReleaseDTO">
+        SELECT
+            order_item_id AS orderItemId,
+            order_id AS orderId,
+            sku_id AS skuId,
+            quantity AS quantity
+        FROM order_item
+        WHERE order_id = #{orderId}
+        ORDER BY order_item_id ASC
+    </select>
+
+    <update id="releaseSkuLockedStock">
+        UPDATE ticket_sku
+        SET stock_locked = stock_locked - #{quantity},
+            stock_available = stock_available + #{quantity},
+            version = version + 1,
+            update_time = NOW()
+        WHERE sku_id = #{skuId}
+          AND stock_locked &gt;= #{quantity}
+    </update>
+
+    <update id="updateOrderCanceled">
+        UPDATE ticket_order
+        SET order_status = 'CANCELED',
+            cancel_time = #{cancelTime},
+            update_time = #{cancelTime}
+        WHERE order_id = #{orderId}
+          AND order_status = 'WAIT_PAY'
+    </update>
+
+</mapper>

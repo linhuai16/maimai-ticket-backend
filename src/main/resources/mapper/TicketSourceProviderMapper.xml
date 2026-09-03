@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.TicketSourceProviderMapper">
+
+    <sql id="ProviderColumns">
+        provider_id AS providerId,
+        provider_code AS providerCode,
+        provider_name AS providerName,
+        provider_type AS providerType,
+        access_mode AS accessMode,
+        adapter_code AS adapterCode,
+        provider_status AS providerStatus,
+        priority AS priority,
+        base_url AS baseUrl,
+        credential_ref AS credentialRef,
+        connect_timeout_ms AS connectTimeoutMs,
+        read_timeout_ms AS readTimeoutMs,
+        remark AS remark,
+        version AS version,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <select id="selectById"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceProvider">
+        SELECT <include refid="ProviderColumns"/>
+        FROM ticket_source_provider
+        WHERE provider_id = #{providerId}
+        LIMIT 1
+    </select>
+
+    <select id="selectByCode"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceProvider">
+        SELECT <include refid="ProviderColumns"/>
+        FROM ticket_source_provider
+        WHERE provider_code = #{providerCode}
+        LIMIT 1
+    </select>
+
+    <select id="selectEnabledProviders"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceProvider">
+        SELECT <include refid="ProviderColumns"/>
+        FROM ticket_source_provider
+        WHERE provider_status = 'ENABLED'
+          AND provider_code = 'MOCK_DAMAI'
+          AND provider_type = 'MOCK'
+        ORDER BY priority ASC, provider_id ASC
+    </select>
+
+    <select id="selectAllProviders"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceProvider">
+        SELECT <include refid="ProviderColumns"/>
+        FROM ticket_source_provider
+        WHERE provider_code = 'MOCK_DAMAI'
+          AND provider_type = 'MOCK'
+        ORDER BY priority ASC, provider_id ASC
+    </select>
+
+</mapper>

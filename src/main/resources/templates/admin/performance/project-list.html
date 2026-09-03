@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('演出项目')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content">
+            <section class="page-heading">
+                <div>
+                    <p class="breadcrumb">演出管理 / 演出项目</p>
+                    <h2>演出项目列表</h2>
+                    <p>统一管理麦麦演出和第三方原始项目。</p>
+                </div>
+                <a class="button button-primary" th:href="@{/admin/performances/projects/new}">＋ 新建演出</a>
+            </section>
+
+            <section class="panel table-panel provider-project-panel">
+                <div class="panel-header table-header">
+                    <div><h3>MOCK_DAMAI 第三方原始项目</h3><p id="providerProjectSummary">查看和同步第三方原始项目。</p></div>
+                    <button class="button button-ghost button-small" type="button" id="refreshProviderProjectsButton">刷新 Provider</button>
+                </div>
+                <form id="providerProjectFilterForm" class="filter-grid">
+                    <label class="field compact"><span>Provider</span><input value="MOCK_DAMAI" disabled></label>
+                    <label class="field compact"><span>关键词</span><input id="providerKeyword" type="search" placeholder="标题 / Provider项目ID"></label>
+                    <label class="field compact"><span>城市</span><input id="providerCity" placeholder="例如：北京"></label>
+                    <div class="filter-actions"><button class="button button-secondary" type="submit">查询第三方项目</button></div>
+                </form>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead><tr><th>第三方项目</th><th>城市 / 场馆</th><th>状态</th><th>价格</th><th>更新时间</th><th class="align-right">同步</th></tr></thead>
+                        <tbody id="providerProjectTableBody"><tr><td colspan="6"><div class="table-empty">正在读取 MOCK_DAMAI 项目...</div></td></tr></tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <label class="page-size-field">每页 <select id="providerPageSizeSelect"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select> 条</label>
+                    <div id="providerProjectPagination" class="pagination"></div>
+                </div>
+            </section>
+
+            <section class="panel filter-panel">
+                <form id="projectFilterForm" class="filter-grid">
+                    <label class="field compact">
+                        <span>关键词</span>
+                        <input id="keyword" name="keyword" type="search" placeholder="演出标题" maxlength="100">
+                    </label>
+                    <label class="field compact">
+                        <span>演出分类</span>
+                        <select id="categoryId" name="categoryId">
+                            <option value="">全部分类</option>
+                            <option th:each="category : ${categories}"
+                                    th:value="${category.categoryId}"
+                                    th:text="${category.categoryName}">演唱会</option>
+                        </select>
+                    </label>
+                    <label class="field compact">
+                        <span>项目状态</span>
+                        <select id="projectStatus" name="projectStatus">
+                            <option value="">全部状态</option>
+                            <option value="ON_SALE">在售</option>
+                            <option value="COMING_SOON">即将开售</option>
+                            <option value="SOLD_OUT">已售罄</option>
+                            <option value="OFFLINE">已下架</option>
+                        </select>
+                    </label>
+                    <div class="filter-actions">
+                        <button class="button button-primary" type="submit">查询</button>
+                        <button class="button button-secondary" type="button" id="resetFilterButton">重置</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel table-panel">
+                <div class="panel-header table-header">
+                    <div><h3>项目数据</h3><p id="projectTotalText">正在读取...</p></div>
+                    <button class="button button-ghost button-small" type="button" id="refreshProjectButton">刷新</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table project-table">
+                        <thead>
+                        <tr>
+                            <th>项目</th>
+                            <th>分类</th>
+                            <th>价格区间</th>
+                            <th>资源</th>
+                            <th>热度</th>
+                            <th>状态</th>
+                            <th>更新时间</th>
+                            <th class="align-right">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="projectTableBody">
+                        <tr><td colspan="8"><div class="table-empty">正在加载项目数据...</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <label class="page-size-field">每页
+                        <select id="pageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select> 条
+                    </label>
+                    <div id="projectPagination" class="pagination"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="projectDetailModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="projectDetailTitle">
+        <div class="modal-header">
+            <div><p class="modal-eyebrow">PROJECT DETAIL</p><h3 id="projectDetailTitle">演出项目详情</h3></div>
+            <button class="icon-button" id="projectDetailClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body" id="projectDetailContent">
+            <div class="table-empty">正在读取...</div>
+        </div>
+        <div class="modal-footer project-detail-actions">
+            <a class="button button-secondary" id="detailEditProjectLink" href="/admin/performances/projects">编辑项目</a>
+            <a class="button button-primary" id="detailManageSessionLink" href="/admin/performances/sessions">管理场次</a>
+            <button class="button button-ghost" id="projectDetailCloseButton" type="button">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/rich-text-editor.js}"></script>
+<script th:src="@{/admin/js/project-list.js}"></script>
+</body>
+</html>

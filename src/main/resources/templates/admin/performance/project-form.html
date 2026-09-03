@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="projectFormPage"
+              th:attr="data-mode=${formMode},data-project-id=${projectId}">
+            <section class="page-heading">
+                <div>
+                    <p class="breadcrumb">演出管理 / 演出项目 / <span th:text="${formMode == 'create' ? '新建' : '编辑'}">编辑</span></p>
+                    <h2 th:text="${formMode == 'create' ? '新建演出项目' : '编辑演出项目'}">编辑演出项目</h2>
+                    <p>项目价格区间由场次票档自动汇总，不能在项目表单中直接修改。</p>
+                </div>
+                <a class="button button-secondary" th:href="@{/admin/performances/projects}">返回项目列表</a>
+            </section>
+
+            <div class="inline-alert info" id="sourceManagedProjectNotice" hidden>已建立 Provider 映射。标题、分类、海报和简介/详情属于 Provider 权威事实数据，在后台只读，重新同步可以覆盖；麦麦平台只维护排序、推荐、上下架和平台发布时间等运营配置。</div>
+            <form id="projectForm" class="form-page-grid" novalidate>
+                <section class="panel form-panel form-panel-main">
+                    <div class="panel-header">
+                        <div><h3>演出项目配置</h3><p>第三方项目区分 Provider 权威事实数据与麦麦平台运营数据。</p></div>
+                    </div>
+                    <div class="form-section project-section-card" id="projectCoreDataSection">
+                        <div class="panel-header">
+                            <div><h3 id="projectCoreSectionTitle">本地演出基础信息</h3><p id="projectCoreSectionHint">带 * 的字段为必填项。</p></div>
+                        </div>
+                        <div class="field-grid field-grid-two">
+                            <label class="field field-wide">
+                                <span>演出标题 *</span>
+                                <input id="title" name="title" type="text" maxlength="200" required
+                                       placeholder="例如：2026 周杰伦世界巡回演唱会">
+                                <small>最多 200 个字符</small>
+                            </label>
+                            <label class="field">
+                                <span>演出分类 *</span>
+                                <select id="categoryId" name="categoryId" required>
+                                    <option value="">请选择分类</option>
+                                    <option th:each="category : ${categories}"
+                                            th:value="${category.categoryId}"
+                                            th:text="${category.categoryName}">演唱会</option>
+                                </select>
+                            </label>
+                            <div class="field field-wide">
+                                <span>演出海报 *</span>
+                                <div class="media-picker-control" data-media-picker
+                                     data-required="true"
+                                     data-business-type="PROJECT_POSTER"
+                                     data-target-input="posterUrl"
+                                     data-title="选择演出海报">
+                                    <div class="media-picker-input-row">
+                                        <input id="posterUrl" name="posterUrl" type="text" maxlength="500" readonly
+                                               placeholder="请选择或上传演出海报">
+                                        <button class="button button-secondary" type="button" data-media-picker-open>选择图片</button>
+                                        <button class="button button-ghost" type="button" data-media-picker-clear>清除</button>
+                                    </div>
+                                    <small class="media-picker-summary" data-media-picker-summary>尚未选择图片</small>
+                                </div>
+                            </div>
+                            <div class="field field-wide">
+                                <span>演出简介 / 详情</span>
+                                <div th:replace="~{admin/components/rich-text-editor :: editor('detailContent', 'PROJECT_DETAIL_IMAGE', 'PROJECT_DETAIL_VIDEO', '填写演出简介、阵容和详情内容，可插入图片和视频')}"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section project-section-card" id="projectOperationSection">
+                        <div class="panel-header">
+                            <div><h3>麦麦平台运营配置</h3><p id="projectOperationSectionHint">平台运营字段不会被 Provider 重新同步覆盖。</p></div>
+                        </div>
+                        <div class="field-grid field-grid-two">
+                            <label class="field">
+                                <span>首页排序分</span>
+                                <input id="hotScore" name="hotScore" type="number" min="0" max="99999999.99" step="0.01" value="0">
+                                <small>数值越大首页推荐排序越靠前；范围 0～99999999.99</small>
+                            </label>
+                            <label class="field">
+                                <span>平台发布时间</span>
+                                <input id="publishTime" name="publishTime" type="datetime-local" step="1">
+                                <small>记录麦麦平台发布/上架时间，用于“最新”排序；不控制定时上架，首次上架时为空会自动写入当前时间，Provider 同步不会覆盖</small>
+                            </label>
+                        </div>
+                        <div class="action-row project-section-actions">
+                            <button class="button button-primary" type="submit" id="saveProjectButton">保存演出信息</button>
+                        </div>
+                    </div>
+
+                    <div class="form-section project-section-card project-section-provider" id="providerSourceSection" hidden>
+                        <div class="panel-header"><div><h3>第三方原始项目 + 本地映射</h3><p>重新同步会更新 Provider 权威事实数据：标题、分类、海报、简介/详情、场馆、场次、开售时间、票档、Provider 售价、结算价、库存、限购、观演须知和退款规则。</p></div></div>
+                        <div class="compact-detail-list">
+                            <div><span>Provider</span><strong id="providerCodeText">-</strong></div>
+                            <div><span>Provider 项目ID</span><strong id="providerProjectIdText">-</strong></div>
+                            <div><span>映射状态</span><strong id="providerMappingStatusText">-</strong></div>
+                            <div><span>Provider 售卖状态</span><strong id="providerSaleStatusText">-</strong></div>
+                            <div><span>最近同步</span><strong id="providerLastSyncText">-</strong></div>
+                            <div><span>来源更新时间</span><strong id="providerSourceUpdatedText">-</strong></div>
+                        </div>
+                        <div class="inline-note"><strong id="providerProjectNameText">-</strong><p id="providerIntroductionText">-</p></div>
+                        <div class="inline-note"><strong>Provider 原始海报</strong><p id="providerPosterText">-</p></div>
+                        <div class="inline-note"><strong>Provider 原始详情</strong><div id="providerDetailPreview" class="rich-text-preview">-</div></div>
+                        <div class="action-row action-row-wrap">
+                            <button class="button button-secondary button-small" id="previewProviderProjectButton" type="button">Preview Provider</button>
+                            <button class="button button-secondary button-small" id="syncProviderProjectButton" type="button">重新同步 Provider</button>
+                        </div>
+                        <pre class="ts-json" id="providerSyncResult" hidden></pre>
+                    </div>
+
+                    <div class="form-section project-section-card" th:if="${formMode == 'edit'}">
+                        <div class="panel-header"><div><h3>演出服务标签</h3><p>系统标签只读，可补充运营标签。</p></div><button class="button button-secondary button-small" id="saveServiceTagsButton" type="button">保存标签调整</button></div>
+                        <div class="inline-note"><strong>系统生成</strong><div id="providerServiceTagsBox" class="action-row action-row-wrap">读取中...</div></div>
+                        <div class="inline-note"><strong>管理员调整</strong><div id="manualServiceTagOptions" class="action-row action-row-wrap">读取中...</div></div>
+                        <div class="action-row"><a class="button button-ghost button-small" th:href="@{/admin/operation/service-tags}">管理标签字典</a></div>
+                    </div>
+
+                    <div class="form-section project-section-card" th:if="${formMode == 'edit'}">
+                        <div class="panel-header"><div><h3>观演须知</h3><p>第三方须知只读，可补充项目须知。</p></div><button class="button button-secondary button-small" id="saveNoticesButton" type="button">保存本地补充</button></div>
+                        <div class="inline-note"><strong>Provider 须知（只读）</strong><div id="providerNoticesBox">读取中...</div></div>
+                        <div class="inline-note"><strong>管理员补充</strong><div id="manualNoticeOptions">读取中...</div></div>
+                        <div class="action-row"><a class="button button-ghost button-small" th:href="@{/admin/operation/notices}">管理须知字典 / 图标</a></div>
+                    </div>
+
+                    <div class="form-section project-section-card" th:if="${formMode == 'edit'}">
+                        <div class="panel-header"><div><h3>退款规则</h3><p>退款规则只读。</p></div></div>
+                        <div id="refundRuleBox" class="inline-note">读取中...</div>
+                    </div>
+                </section>
+
+                <aside class="form-side-stack">
+                    <section class="panel form-panel">
+                        <div class="panel-header"><div><h3>发布设置</h3><p>控制麦麦平台展示状态</p></div></div>
+                        <div class="form-section">
+                            <div class="inline-alert info" th:if="${formMode == 'create'}">
+                                新建项目固定保存为“已下架”。请继续配置场次和票档，完成后再从编辑页或项目列表执行上架。
+                            </div>
+                            <div th:if="${formMode == 'edit'}" class="compact-detail-list">
+                                <div><span>当前状态</span><strong id="projectCurrentStatus">读取中...</strong></div>
+                                <div><span>首页推荐</span><strong id="projectCurrentRecommend">读取中...</strong></div>
+                            </div>
+                            <div th:if="${formMode == 'edit'}" class="action-row action-row-wrap project-publish-actions">
+                                <button class="button button-secondary button-small" id="publishComingSoonButton" type="button">上架为即将开售</button>
+                                <button class="button button-secondary button-small" id="publishOnSaleButton" type="button">上架为在售</button>
+                                <button class="button button-secondary button-small" id="publishSoldOutButton" type="button">设为已售罄</button>
+                                <button class="button button-ghost button-small danger-text" id="unpublishProjectButton" type="button">下架项目</button>
+                            </div>
+                            <div th:if="${formMode == 'edit'}" class="action-row action-row-wrap">
+                                <button class="button button-secondary button-small" id="toggleRecommendButton" type="button">切换首页推荐</button>
+                            </div>
+                            <div class="inline-alert warning">
+                                上架前后端会检查：至少存在一个已上架场次，并且该场次已经配置可展示票档和库存。
+                            </div>
+                        </div>
+                    </section>
+
+
+
+                    <section class="panel form-panel">
+                        <div class="panel-header"><div><h3>海报预览</h3><p>展示当前选择的媒体文件</p></div></div>
+                        <div class="form-section">
+                            <div class="poster-preview" id="posterPreview">
+                                <span>暂无可预览图片</span>
+                                <img id="posterPreviewImage" alt="演出海报预览" hidden>
+                            </div>
+                        </div>
+                    </section>
+
+                    <section class="panel form-panel" id="projectReadOnlyPanel" hidden>
+                        <div class="panel-header"><div><h3>系统字段</h3><p>由数据库和票档自动维护</p></div></div>
+                        <div class="form-section compact-detail-list">
+                            <div><span>项目 ID</span><strong id="readonlyProjectId">-</strong></div>
+                            <div><span>价格区间</span><strong id="readonlyPrice">-</strong></div>
+                            <div><span>想看人数</span><strong id="readonlyWantCount">-</strong></div>
+                            <div><span>创建时间</span><strong id="readonlyCreateTime">-</strong></div>
+                            <div><span>更新时间</span><strong id="readonlyUpdateTime">-</strong></div>
+                        </div>
+                    </section>
+                </aside>
+
+            </form>
+        </main>
+    </div>
+</div>
+
+<div th:replace="~{admin/components/media-selector :: selector}"></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/media-selector.js}"></script>
+<script th:src="@{/admin/js/rich-text-editor.js}"></script>
+<script th:src="@{/admin/js/project-form.js}"></script>
+</body>
+</html>

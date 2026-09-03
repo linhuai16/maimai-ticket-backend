@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.TicketSourceMappingMapper">
+
+    <sql id="ProjectMappingColumns">
+        mapping_id AS mappingId,
+        provider_id AS providerId,
+        project_id AS projectId,
+        provider_project_id AS providerProjectId,
+        provider_project_name AS providerProjectName,
+        mapping_status AS mappingStatus,
+        source_sale_status AS sourceSaleStatus,
+        source_data_version AS sourceDataVersion,
+        auto_publish_enabled AS autoPublishEnabled,
+        last_sync_status AS lastSyncStatus,
+        last_sync_time AS lastSyncTime,
+        last_error_code AS lastErrorCode,
+        last_error_message AS lastErrorMessage,
+        source_payload_snapshot AS sourcePayloadSnapshot,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <sql id="SessionMappingColumns">
+        mapping_id AS mappingId,
+        provider_id AS providerId,
+        project_mapping_id AS projectMappingId,
+        session_id AS sessionId,
+        provider_session_id AS providerSessionId,
+        provider_session_name AS providerSessionName,
+        mapping_status AS mappingStatus,
+        source_sale_status AS sourceSaleStatus,
+        source_data_version AS sourceDataVersion,
+        last_sync_status AS lastSyncStatus,
+        last_sync_time AS lastSyncTime,
+        last_error_code AS lastErrorCode,
+        last_error_message AS lastErrorMessage,
+        source_payload_snapshot AS sourcePayloadSnapshot,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <sql id="SkuMappingColumns">
+        mapping_id AS mappingId,
+        provider_id AS providerId,
+        session_mapping_id AS sessionMappingId,
+        sku_id AS skuId,
+        provider_sku_id AS providerSkuId,
+        provider_sku_name AS providerSkuName,
+        mapping_status AS mappingStatus,
+        source_sale_status AS sourceSaleStatus,
+        inventory_mode AS inventoryMode,
+        available_stock_snapshot AS availableStockSnapshot,
+        face_price AS facePrice,
+        sale_price AS salePrice,
+        settlement_price AS settlementPrice,
+        currency_code AS currencyCode,
+        source_data_version AS sourceDataVersion,
+        last_sync_status AS lastSyncStatus,
+        last_sync_time AS lastSyncTime,
+        last_inventory_sync_time AS lastInventorySyncTime,
+        last_error_code AS lastErrorCode,
+        last_error_message AS lastErrorMessage,
+        source_payload_snapshot AS sourcePayloadSnapshot,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <select id="selectProjectMapping"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceProjectMapping">
+        SELECT <include refid="ProjectMappingColumns"/>
+        FROM ticket_source_project_mapping
+        WHERE provider_id = #{providerId}
+          AND project_id = #{projectId}
+        LIMIT 1
+    </select>
+
+    <select id="selectSessionMapping"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSessionMapping">
+        SELECT <include refid="SessionMappingColumns"/>
+        FROM ticket_source_session_mapping
+        WHERE provider_id = #{providerId}
+          AND session_id = #{sessionId}
+        LIMIT 1
+    </select>
+
+    <select id="selectSkuMapping"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSkuMapping">
+        SELECT <include refid="SkuMappingColumns"/>
+        FROM ticket_source_sku_mapping
+        WHERE provider_id = #{providerId}
+          AND sku_id = #{skuId}
+        LIMIT 1
+    </select>
+
+    <select id="selectBoundSkuMappingsBySkuId"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSkuMapping">
+        SELECT <include refid="SkuMappingColumns"/>
+        FROM ticket_source_sku_mapping
+        WHERE sku_id = #{skuId}
+          AND mapping_status = 'BOUND'
+        ORDER BY provider_id ASC, mapping_id ASC
+    </select>
+
+</mapper>

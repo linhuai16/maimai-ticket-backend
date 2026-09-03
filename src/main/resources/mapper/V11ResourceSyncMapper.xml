@@ -1,0 +1,242 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.V11ResourceSyncMapper">
+
+    <select id="selectProjectSourceUpdatedTime" resultType="java.time.LocalDateTime">
+        SELECT source_updated_time
+        FROM ticket_source_project_mapping
+        WHERE provider_id=#{providerId} AND provider_project_id=#{providerProjectId}
+        LIMIT 1
+    </select>
+
+    <update id="updateProjectSourceState">
+        UPDATE ticket_source_project_mapping
+        SET source_status_value=#{sourceStatusValue},
+            source_status_text=#{sourceStatusText},
+            source_updated_time=#{sourceUpdatedTime},
+            update_time=NOW()
+        WHERE mapping_id=#{mappingId}
+    </update>
+
+    <update id="updateSessionSourceState">
+        UPDATE ticket_source_session_mapping
+        SET source_status_value=#{sourceStatusValue},
+            source_status_text=#{sourceStatusText},
+            source_updated_time=#{sourceUpdatedTime},
+            update_time=NOW()
+        WHERE provider_id=#{providerId}
+          AND project_mapping_id=#{projectMappingId}
+          AND provider_session_id=#{providerSessionId}
+    </update>
+
+    <update id="updateSkuSourceState">
+        UPDATE ticket_source_sku_mapping
+        SET source_status_value=#{sourceStatusValue},
+            source_status_text=#{sourceStatusText},
+            source_updated_time=#{sourceUpdatedTime},
+            update_time=NOW()
+        WHERE provider_id=#{providerId} AND provider_sku_id=#{providerSkuId}
+    </update>
+
+    <select id="selectProjectVenueId" resultType="java.lang.Long">
+        SELECT venue_id
+        FROM performance_session
+        WHERE project_id=#{projectId}
+        ORDER BY session_id
+        LIMIT 1
+    </select>
+
+    <update id="updateVenue" parameterType="map">
+        UPDATE venue
+        SET venue_name=#{venueName}, city_name=#{cityName}, address=#{address},
+            longitude=#{longitude}, latitude=#{latitude}, coordinate_system=#{coordinateSystem},
+            update_time=NOW()
+        WHERE venue_id=#{venueId}
+    </update>
+
+    <insert id="upsertVenueMapping" parameterType="map">
+        INSERT INTO ticket_source_venue_mapping
+        (provider_id,venue_id,provider_venue_id,mapping_status,last_sync_time,create_time,update_time)
+        VALUES
+        (#{providerId},#{venueId},#{providerVenueId},'BOUND',NOW(),NOW(),NOW())
+        ON DUPLICATE KEY UPDATE
+        venue_id=VALUES(venue_id), mapping_status='BOUND', last_sync_time=NOW(), update_time=NOW()
+    </insert>
+
+    <select id="selectNoticeIdByType" resultType="java.lang.Long">
+        SELECT notice_id FROM notice_item WHERE notice_type=#{noticeType} ORDER BY notice_id LIMIT 1
+    </select>
+
+    <select id="selectNoticeIdByTitle" resultType="java.lang.Long">
+        SELECT notice_id FROM notice_item WHERE title=#{title} ORDER BY notice_id LIMIT 1
+    </select>
+
+    <insert id="insertNotice" parameterType="map" useGeneratedKeys="true" keyProperty="noticeId">
+        INSERT INTO notice_item(title,description,icon_url,notice_type)
+        VALUES(#{title},#{description},#{iconUrl},#{noticeType})
+    </insert>
+
+    <delete id="deleteProviderNotices">
+        DELETE FROM project_notice_rel
+        WHERE project_id=#{projectId} AND source_provider_id=#{providerId}
+    </delete>
+
+    <insert id="insertProviderNoticeRelation" parameterType="map">
+        INSERT IGNORE INTO project_notice_rel
+        (project_id,notice_id,source_provider_id,provider_notice_key,title_override,description_override,sort_order)
+        VALUES
+        (#{projectId},#{noticeId},#{providerId},#{providerNoticeKey},#{title},#{description},#{sortOrder})
+    </insert>
+
+    <delete id="deleteProviderServiceTags">
+        DELETE FROM project_service_tag_rel
+        WHERE project_id=#{projectId} AND source_provider_id=#{providerId}
+    </delete>
+
+    <select id="selectTagIdByCapability" resultType="java.lang.Long">
+        SELECT tag_id FROM service_tag_capability_rel WHERE capability_code=#{capabilityCode} LIMIT 1
+    </select>
+
+    <insert id="insertProviderServiceTagRelation" parameterType="map">
+        INSERT IGNORE INTO project_service_tag_rel(project_id,tag_id,source_provider_id,sort_order)
+        VALUES(#{projectId},#{tagId},#{providerId},#{sortOrder})
+    </insert>
+
+    <select id="selectRefundRuleId" resultType="java.lang.Long">
+        SELECT refund_rule_id FROM refund_rule WHERE project_id=#{projectId} LIMIT 1
+    </select>
+
+    <insert id="insertRefundRule" parameterType="map" useGeneratedKeys="true" keyProperty="refundRuleId">
+        INSERT INTO refund_rule
+        (project_id,source_provider_id,provider_rule_id,refund_type,consumer_entry_enabled,
+         delivery_fee_refundable,rule_description,create_time,update_time)
+        VALUES
+        (#{projectId},#{providerId},#{providerRuleId},#{refundType},#{consumerEntryEnabled},
+         #{deliveryFeeRefundable},#{ruleDescription},NOW(),NOW())
+    </insert>
+
+    <update id="updateRefundRule" parameterType="map">
+        UPDATE refund_rule
+        SET source_provider_id=#{providerId}, provider_rule_id=#{providerRuleId},
+            refund_type=#{refundType}, consumer_entry_enabled=#{consumerEntryEnabled},
+            delivery_fee_refundable=#{deliveryFeeRefundable}, rule_description=#{ruleDescription},
+            update_time=NOW()
+        WHERE refund_rule_id=#{refundRuleId}
+    </update>
+
+    <delete id="deleteRefundStages">
+        DELETE FROM refund_rule_stage WHERE refund_rule_id=#{refundRuleId}
+    </delete>
+
+    <insert id="insertRefundStage" parameterType="map">
+        INSERT INTO refund_rule_stage
+        (refund_rule_id,min_before_start_minutes,max_before_start_minutes,stage_result,fee_rate,fixed_fee_amount,sort_order)
+        VALUES
+        (#{refundRuleId},#{minBeforeStartMinutes},#{maxBeforeStartMinutes},#{stageResult},#{feeRate},#{fixedFeeAmount},#{sortOrder})
+    </insert>
+
+    <update id="disablePromotions">
+        UPDATE ticket_source_promotion_rule SET promotion_status='DISABLED',update_time=NOW()
+        WHERE project_mapping_id=#{projectMappingId}
+    </update>
+
+    <insert id="upsertPromotion" parameterType="map">
+        INSERT INTO ticket_source_promotion_rule
+        (project_mapping_id,provider_promotion_id,promotion_type,promotion_title,promotion_description,
+         start_time,end_time,promotion_status,stackable,target_scope_json,rule_data_json,source_version,
+         source_updated_time,update_time)
+        VALUES
+        (#{projectMappingId},#{providerPromotionId},#{promotionType},#{promotionTitle},#{promotionDescription},
+         #{startTime},#{endTime},'ENABLED',#{stackable},#{targetScopeJson},#{ruleDataJson},#{sourceVersion},
+         #{sourceUpdatedTime},NOW())
+        ON DUPLICATE KEY UPDATE
+        promotion_type=VALUES(promotion_type),promotion_title=VALUES(promotion_title),
+        promotion_description=VALUES(promotion_description),start_time=VALUES(start_time),end_time=VALUES(end_time),
+        promotion_status='ENABLED',stackable=VALUES(stackable),target_scope_json=VALUES(target_scope_json),
+        rule_data_json=VALUES(rule_data_json),source_version=VALUES(source_version),
+        source_updated_time=VALUES(source_updated_time),update_time=NOW()
+    </insert>
+
+    <update id="disableCampaignAssetsByCity">
+        UPDATE ticket_source_campaign_asset
+        SET source_enabled=0,update_time=NOW()
+        WHERE provider_id=#{providerId}
+          AND (#{cityCode} IS NULL OR #{cityCode}='' OR FIND_IN_SET(#{cityCode},city_codes)&gt;0)
+    </update>
+
+    <insert id="upsertCampaignAsset" parameterType="map">
+        INSERT INTO ticket_source_campaign_asset
+        (provider_id,provider_asset_id,asset_type,position_code,title,description,image_url,mobile_image_url,
+         target_type,provider_target_id,city_codes,start_time,end_time,provider_promotion_id,
+         review_status,banner_id,source_enabled,source_version,source_updated_time,create_time,update_time)
+        VALUES
+        (#{providerId},#{providerAssetId},#{assetType},#{positionCode},#{title},#{description},#{imageUrl},#{mobileImageUrl},
+         #{targetType},#{providerTargetId},#{cityCodes},#{startTime},#{endTime},#{providerPromotionId},
+         'PENDING',NULL,1,#{sourceVersion},#{sourceUpdatedTime},NOW(),NOW())
+        ON DUPLICATE KEY UPDATE
+        asset_type=VALUES(asset_type),position_code=VALUES(position_code),title=VALUES(title),
+        description=VALUES(description),image_url=VALUES(image_url),mobile_image_url=VALUES(mobile_image_url),
+        target_type=VALUES(target_type),provider_target_id=VALUES(provider_target_id),city_codes=VALUES(city_codes),
+        start_time=VALUES(start_time),end_time=VALUES(end_time),provider_promotion_id=VALUES(provider_promotion_id),
+        source_enabled=1,source_version=VALUES(source_version),source_updated_time=VALUES(source_updated_time),
+        update_time=NOW()
+    </insert>
+
+    <select id="selectMappingDetails" resultType="com.example.maimaibackend.ticketsource.resource.provider.model.V11ResourceMappingDetail">
+        SELECT pm.project_id AS projectId, sm.session_id AS sessionId, skm.sku_id AS skuId,
+               sku.sku_name AS skuName, p.provider_code AS providerCode,
+               pm.provider_project_id AS providerProjectId, sm.provider_session_id AS providerSessionId,
+               skm.provider_sku_id AS providerSkuId, skm.provider_sku_name AS providerSkuName,
+               pm.mapping_status AS projectMappingStatus, sm.mapping_status AS sessionMappingStatus,
+               skm.mapping_status AS skuMappingStatus, skm.source_sale_status AS sourceSaleStatus,
+               skm.inventory_mode AS inventoryMode, skm.available_stock_snapshot AS availableStockSnapshot,
+               skm.face_price AS providerFacePrice, skm.sale_price AS providerSalePrice,
+               skm.settlement_price AS settlementPrice, sku.price AS platformPrice, sku.price_mode AS priceMode,
+               ps.delivery_type AS deliveryType, sku.sku_status AS localSkuStatus,
+               skm.last_sync_status AS lastSyncStatus, skm.last_sync_time AS lastSyncTime
+        FROM ticket_source_project_mapping pm
+        JOIN ticket_source_provider p ON p.provider_id=pm.provider_id
+        JOIN ticket_source_session_mapping sm ON sm.project_mapping_id=pm.mapping_id
+        JOIN ticket_source_sku_mapping skm ON skm.session_mapping_id=sm.mapping_id
+        JOIN ticket_sku sku ON sku.sku_id=skm.sku_id
+        JOIN performance_session ps ON ps.session_id=sm.session_id
+        WHERE pm.provider_id=#{providerId} AND pm.provider_project_id=#{providerProjectId}
+        ORDER BY sm.provider_session_id, skm.provider_sku_id
+    </select>
+
+    <select id="selectSummary" resultType="com.example.maimaibackend.ticketsource.resource.provider.model.V11ResourceMappingSummary">
+        SELECT p.provider_code AS providerCode,
+               pm.provider_project_id AS providerProjectId,
+               pm.mapping_id AS projectMappingId,
+               pm.project_id AS projectId,
+               lp.project_status AS localProjectStatus,
+               pm.auto_publish_enabled AS autoPublishEnabled,
+               pm.source_sale_status AS sourceStatus,
+               pm.source_status_value AS sourceStatusValue,
+               pm.source_status_text AS sourceStatusText,
+               pm.source_data_version AS sourceVersion,
+               pm.source_updated_time AS sourceUpdatedTime,
+               (SELECT COUNT(*) FROM ticket_source_session_mapping sm
+                 WHERE sm.project_mapping_id=pm.mapping_id AND sm.mapping_status='BOUND') AS boundSessionCount,
+               (SELECT COUNT(*) FROM ticket_source_sku_mapping skm
+                 JOIN ticket_source_session_mapping sm2 ON sm2.mapping_id=skm.session_mapping_id
+                 WHERE sm2.project_mapping_id=pm.mapping_id AND skm.mapping_status='BOUND') AS boundTicketProductCount,
+               (SELECT COUNT(*) FROM project_notice_rel nr
+                 WHERE nr.project_id=pm.project_id AND nr.source_provider_id=pm.provider_id) AS noticeCount,
+               (SELECT COUNT(*) FROM project_service_tag_rel tr
+                 WHERE tr.project_id=pm.project_id AND tr.source_provider_id=pm.provider_id) AS serviceTagCount,
+               (SELECT COUNT(*) FROM ticket_source_promotion_rule pr
+                 WHERE pr.project_mapping_id=pm.mapping_id AND pr.promotion_status='ENABLED') AS promotionCount,
+               rr.refund_type AS refundType,
+               pm.last_sync_time AS lastSyncTime,
+               pm.last_sync_status AS lastSyncStatus,
+               pm.last_error_code AS lastErrorCode,
+               pm.last_error_message AS lastErrorMessage
+        FROM ticket_source_project_mapping pm
+        JOIN ticket_source_provider p ON p.provider_id=pm.provider_id
+        JOIN performance_project lp ON lp.project_id=pm.project_id
+        LEFT JOIN refund_rule rr ON rr.project_id=pm.project_id
+        WHERE pm.provider_id=#{providerId} AND pm.provider_project_id=#{providerProjectId}
+        LIMIT 1
+    </select>
+</mapper>

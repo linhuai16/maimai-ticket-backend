@@ -1,0 +1,584 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.LocalMockTicketSourceMapper">
+
+    <sql id="ProjectColumns">
+        source_project_id AS providerProjectId,
+        source_project_name AS projectName,
+        category_name AS categoryName,
+        city_name AS cityName,
+        venue_name AS venueName,
+        poster_url AS posterUrl,
+        detail_content AS detailContent,
+        sale_status AS saleStatus,
+        min_price AS minPrice,
+        max_price AS maxPrice,
+        data_version AS dataVersion,
+        update_time AS updateTime
+    </sql>
+
+    <sql id="ProjectConditions">
+        enabled = 1
+        <if test="keyword != null and keyword != ''">
+            AND source_project_name LIKE CONCAT('%', #{keyword}, '%')
+        </if>
+        <if test="cityName != null and cityName != ''">
+            AND city_name = #{cityName}
+        </if>
+    </sql>
+
+    <select id="countProjects" resultType="int">
+        SELECT COUNT(*)
+        FROM mock_ticket_source_project
+        WHERE <include refid="ProjectConditions"/>
+    </select>
+
+    <select id="selectProjects" resultType="com.example.maimaibackend.ticketsource.gateway.model.TicketSourceProject">
+        SELECT <include refid="ProjectColumns"/>
+        FROM mock_ticket_source_project
+        WHERE <include refid="ProjectConditions"/>
+        ORDER BY update_time DESC, source_project_id ASC
+        LIMIT #{offset}, #{pageSize}
+    </select>
+
+    <select id="selectProjectById" resultType="com.example.maimaibackend.ticketsource.gateway.model.TicketSourceProject">
+        SELECT <include refid="ProjectColumns"/>
+        FROM mock_ticket_source_project
+        WHERE source_project_id = #{providerProjectId}
+          AND enabled = 1
+        LIMIT 1
+    </select>
+
+    <select id="selectSessionsByProjectId" resultType="com.example.maimaibackend.ticketsource.gateway.model.TicketSourceSession">
+        SELECT
+            source_session_id AS providerSessionId,
+            source_project_id AS providerProjectId,
+            source_session_name AS sessionName,
+            city_name AS cityName,
+            venue_name AS venueName,
+            venue_address AS venueAddress,
+            start_time AS startTime,
+            end_time AS endTime,
+            sale_start_time AS saleStartTime,
+            sale_end_time AS saleEndTime,
+            sale_status AS saleStatus,
+            limit_per_order AS limitPerOrder,
+            data_version AS dataVersion,
+            update_time AS updateTime
+        FROM mock_ticket_source_session
+        WHERE source_project_id = #{providerProjectId}
+          AND enabled = 1
+        ORDER BY start_time ASC, source_session_id ASC
+    </select>
+
+    <select id="selectSessionById" resultType="com.example.maimaibackend.ticketsource.gateway.model.TicketSourceSession">
+        SELECT
+            source_session_id AS providerSessionId,
+            source_project_id AS providerProjectId,
+            source_session_name AS sessionName,
+            city_name AS cityName,
+            venue_name AS venueName,
+            venue_address AS venueAddress,
+            start_time AS startTime,
+            end_time AS endTime,
+            sale_start_time AS saleStartTime,
+            sale_end_time AS saleEndTime,
+            sale_status AS saleStatus,
+            limit_per_order AS limitPerOrder,
+            data_version AS dataVersion,
+            update_time AS updateTime
+        FROM mock_ticket_source_session
+        WHERE source_session_id = #{providerSessionId}
+          AND enabled = 1
+        LIMIT 1
+    </select>
+
+    <select id="countSessionById" resultType="int">
+        SELECT COUNT(*)
+        FROM mock_ticket_source_session
+        WHERE source_session_id = #{providerSessionId}
+          AND enabled = 1
+    </select>
+
+    <select id="selectSkusBySessionId" resultType="com.example.maimaibackend.ticketsource.gateway.model.TicketSourceSku">
+        SELECT
+            source_sku_id AS providerSkuId,
+            source_session_id AS providerSessionId,
+            source_sku_name AS skuName,
+            face_price AS facePrice,
+            sale_price AS salePrice,
+            settlement_price AS settlementPrice,
+            currency_code AS currencyCode,
+            inventory_mode AS inventoryMode,
+            available_stock AS availableStock,
+            sale_status AS saleStatus,
+            data_version AS dataVersion,
+            update_time AS updateTime
+        FROM mock_ticket_source_sku
+        WHERE source_session_id = #{providerSessionId}
+          AND enabled = 1
+        ORDER BY sale_price ASC, source_sku_id ASC
+    </select>
+
+    <select id="selectInventoryBySkuId" resultType="com.example.maimaibackend.ticketsource.gateway.model.TicketSourceInventory">
+        SELECT
+            source_sku_id AS providerSkuId,
+            inventory_mode AS inventoryMode,
+            available_stock AS availableStock,
+            sale_status AS saleStatus,
+            data_version AS dataVersion,
+            update_time AS providerUpdateTime
+        FROM mock_ticket_source_sku
+        WHERE source_sku_id = #{providerSkuId}
+          AND enabled = 1
+        LIMIT 1
+    </select>
+
+    <select id="countAllProjects" resultType="int">
+        SELECT COUNT(*) FROM mock_ticket_source_project WHERE enabled = 1
+    </select>
+
+    <select id="countAllSessions" resultType="int">
+        SELECT COUNT(*) FROM mock_ticket_source_session WHERE enabled = 1
+    </select>
+
+    <select id="countAllSkus" resultType="int">
+        SELECT COUNT(*) FROM mock_ticket_source_sku WHERE enabled = 1
+    </select>
+
+    <select id="selectBehavior" resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceBehavior">
+        SELECT
+            operation_code AS operationCode,
+            enabled,
+            delay_ms AS delayMs,
+            forced_error_code AS forcedErrorCode,
+            forced_error_message AS forcedErrorMessage,
+            update_time AS updateTime
+        FROM mock_ticket_source_behavior
+        WHERE operation_code = #{operationCode}
+        LIMIT 1
+    </select>
+
+    <select id="selectBehaviors" resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceBehavior">
+        SELECT
+            operation_code AS operationCode,
+            enabled,
+            delay_ms AS delayMs,
+            forced_error_code AS forcedErrorCode,
+            forced_error_message AS forcedErrorMessage,
+            update_time AS updateTime
+        FROM mock_ticket_source_behavior
+        ORDER BY operation_code ASC
+    </select>
+
+    <update id="updateBehavior">
+        UPDATE mock_ticket_source_behavior
+        SET enabled = #{enabled},
+            delay_ms = #{delayMs},
+            forced_error_code = #{forcedErrorCode},
+            forced_error_message = #{forcedErrorMessage},
+            update_time = NOW()
+        WHERE operation_code = #{operationCode}
+    </update>
+
+    <update id="resetBehaviors">
+        UPDATE mock_ticket_source_behavior
+        SET enabled = 0,
+            delay_ms = 0,
+            forced_error_code = NULL,
+            forced_error_message = NULL,
+            update_time = NOW()
+    </update>
+
+    <update id="updateProjectSaleStatus">
+        UPDATE mock_ticket_source_project
+        SET sale_status = #{saleStatus},
+            data_version = #{dataVersion},
+            update_time = NOW()
+        WHERE source_project_id = #{providerProjectId}
+          AND enabled = 1
+    </update>
+
+    <update id="updateSessionSaleStatus">
+        UPDATE mock_ticket_source_session
+        SET sale_status = #{saleStatus},
+            data_version = #{dataVersion},
+            update_time = NOW()
+        WHERE source_session_id = #{providerSessionId}
+          AND enabled = 1
+    </update>
+
+    <update id="updateSkuInventory">
+        UPDATE mock_ticket_source_sku
+        SET inventory_mode = #{inventoryMode},
+            available_stock = #{availableStock},
+            sale_status = #{saleStatus},
+            data_version = #{dataVersion},
+            version = version + 1,
+            update_time = NOW()
+        WHERE source_sku_id = #{providerSkuId}
+          AND enabled = 1
+    </update>
+
+
+    <select id="selectOrderSkuById"
+            resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceOrderSku">
+        SELECT
+            p.source_project_id AS sourceProjectId,
+            s.source_session_id AS sourceSessionId,
+            sku.source_sku_id AS sourceSkuId,
+            sku.sale_price AS salePrice,
+            sku.currency_code AS currencyCode,
+            sku.sale_status AS saleStatus,
+            sku.available_stock AS availableStock,
+            sku.enabled AS enabled
+        FROM mock_ticket_source_sku sku
+        JOIN mock_ticket_source_session s ON s.source_session_id = sku.source_session_id
+        JOIN mock_ticket_source_project p ON p.source_project_id = s.source_project_id
+        WHERE sku.source_sku_id = #{providerSkuId}
+          AND s.enabled = 1
+          AND p.enabled = 1
+        LIMIT 1
+    </select>
+
+    <sql id="MockOrderColumns">
+        provider_order_id AS providerOrderId,
+        provider_order_no AS providerOrderNo,
+        client_order_no AS clientOrderNo,
+        source_project_id AS sourceProjectId,
+        source_session_id AS sourceSessionId,
+        source_sku_id AS sourceSkuId,
+        quantity,
+        unit_price AS unitPrice,
+        total_amount AS totalAmount,
+        currency_code AS currencyCode,
+        order_status AS orderStatus,
+        create_idempotency_key AS createIdempotencyKey,
+        payment_idempotency_key AS paymentIdempotencyKey,
+        cancel_idempotency_key AS cancelIdempotencyKey,
+        reservation_expire_time AS reservationExpireTime,
+        pay_time AS payTime,
+        cancel_time AS cancelTime,
+        cancel_reason AS cancelReason,
+        data_version AS dataVersion,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <select id="selectOrderByProviderOrderId"
+            resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceOrder">
+        SELECT <include refid="MockOrderColumns"/>
+        FROM mock_ticket_source_order
+        WHERE provider_order_id = #{providerOrderId}
+        LIMIT 1
+    </select>
+
+    <select id="selectOrderByCreateIdempotencyKey"
+            resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceOrder">
+        SELECT <include refid="MockOrderColumns"/>
+        FROM mock_ticket_source_order
+        WHERE create_idempotency_key = #{idempotencyKey}
+        LIMIT 1
+    </select>
+
+    <update id="reserveSkuStock">
+        UPDATE mock_ticket_source_sku
+        SET available_stock = available_stock - #{quantity},
+            data_version = #{dataVersion},
+            sale_status = CASE
+                WHEN available_stock - #{quantity} &lt;= 0 THEN 'SOLD_OUT'
+                ELSE sale_status
+            END,
+            version = version + 1,
+            update_time = NOW()
+        WHERE source_sku_id = #{providerSkuId}
+          AND enabled = 1
+          AND sale_status IN ('ON_SALE', 'PRESALE')
+          AND available_stock IS NOT NULL
+          AND available_stock &gt;= #{quantity}
+    </update>
+
+    <update id="restoreSkuStock">
+        UPDATE mock_ticket_source_sku
+        SET available_stock = available_stock + #{quantity},
+            data_version = #{dataVersion},
+            sale_status = CASE
+                WHEN sale_status = 'SOLD_OUT' THEN 'ON_SALE'
+                ELSE sale_status
+            END,
+            version = version + 1,
+            update_time = NOW()
+        WHERE source_sku_id = #{providerSkuId}
+          AND enabled = 1
+          AND available_stock IS NOT NULL
+    </update>
+
+    <insert id="insertMockOrder"
+            parameterType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceOrder">
+        INSERT INTO mock_ticket_source_order
+        (provider_order_id, provider_order_no, client_order_no, source_project_id,
+         source_session_id, source_sku_id, quantity, unit_price, total_amount,
+         currency_code, order_status, create_idempotency_key, reservation_expire_time,
+         data_version, create_time, update_time)
+        VALUES
+        (#{providerOrderId}, #{providerOrderNo}, #{clientOrderNo}, #{sourceProjectId},
+         #{sourceSessionId}, #{sourceSkuId}, #{quantity}, #{unitPrice}, #{totalAmount},
+         #{currencyCode}, #{orderStatus}, #{createIdempotencyKey}, #{reservationExpireTime},
+         #{dataVersion}, #{createTime}, #{updateTime})
+    </insert>
+
+    <update id="markMockOrderPaid">
+        UPDATE mock_ticket_source_order
+        SET order_status = 'PAID',
+            payment_idempotency_key = COALESCE(payment_idempotency_key, #{paymentIdempotencyKey}),
+            pay_time = COALESCE(pay_time, #{payTime}),
+            data_version = #{dataVersion},
+            update_time = NOW()
+        WHERE provider_order_id = #{providerOrderId}
+          AND order_status IN ('WAIT_PAY', 'PAID')
+          AND (payment_idempotency_key IS NULL OR payment_idempotency_key = #{paymentIdempotencyKey})
+    </update>
+
+    <update id="markMockOrderCanceled">
+        UPDATE mock_ticket_source_order
+        SET order_status = #{orderStatus},
+            cancel_idempotency_key = COALESCE(cancel_idempotency_key, #{cancelIdempotencyKey}),
+            cancel_time = COALESCE(cancel_time, #{cancelTime}),
+            cancel_reason = COALESCE(cancel_reason, #{cancelReason}),
+            data_version = #{dataVersion},
+            update_time = NOW()
+        WHERE provider_order_id = #{providerOrderId}
+          AND order_status IN ('WAIT_PAY', 'CANCELED', 'EXPIRED')
+          AND (cancel_idempotency_key IS NULL OR cancel_idempotency_key = #{cancelIdempotencyKey})
+    </update>
+
+    <sql id="MockDeliveryColumns">
+        provider_order_id AS providerOrderId, delivery_status AS deliveryStatus,
+        issue_mode AS issueMode, seat_mode AS seatMode, credential_type AS credentialType,
+        fail_ticket_index AS failTicketIndex, available_time AS availableTime,
+        request_idempotency_key AS requestIdempotencyKey,
+        expected_ticket_count AS expectedTicketCount, issued_count AS issuedCount,
+        failed_count AS failedCount, last_error_code AS lastErrorCode,
+        last_error_message AS lastErrorMessage, data_version AS dataVersion,
+        create_time AS createTime, update_time AS updateTime
+    </sql>
+
+    <select id="selectDelivery" resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceDelivery">
+        SELECT <include refid="MockDeliveryColumns"/>
+        FROM mock_ticket_source_delivery
+        WHERE provider_order_id = #{providerOrderId}
+        LIMIT 1
+    </select>
+
+    <select id="selectCredentials" resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceCredential">
+        SELECT provider_ticket_id AS providerTicketId, provider_order_id AS providerOrderId,
+               ticket_index AS ticketIndex, ticket_status AS ticketStatus,
+               credential_type AS credentialType, credential_payload AS credentialPayload,
+               credential_version AS credentialVersion, seat_zone AS seatZone,
+               seat_row AS seatRow, seat_number AS seatNumber, entrance_info AS entranceInfo,
+               issue_time AS issueTime, expire_time AS expireTime, error_code AS errorCode,
+               error_message AS errorMessage, data_version AS dataVersion,
+               create_time AS createTime, update_time AS updateTime
+        FROM mock_ticket_source_credential
+        WHERE provider_order_id = #{providerOrderId}
+        ORDER BY ticket_index ASC
+    </select>
+
+    <insert id="insertDefaultDelivery" parameterType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceDelivery">
+        INSERT INTO mock_ticket_source_delivery
+        (provider_order_id, delivery_status, issue_mode, seat_mode, credential_type,
+         fail_ticket_index, available_time, expected_ticket_count, issued_count, failed_count,
+         data_version, create_time, update_time)
+        VALUES
+        (#{providerOrderId}, #{deliveryStatus}, #{issueMode}, #{seatMode}, #{credentialType},
+         #{failTicketIndex}, #{availableTime}, #{expectedTicketCount}, 0, 0,
+         #{dataVersion}, #{createTime}, #{updateTime})
+    </insert>
+
+    <insert id="upsertDeliveryPlan" parameterType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceDelivery">
+        INSERT INTO mock_ticket_source_delivery
+        (provider_order_id, delivery_status, issue_mode, seat_mode, credential_type,
+         fail_ticket_index, available_time, expected_ticket_count, issued_count, failed_count,
+         last_error_code, last_error_message, data_version, create_time, update_time)
+        VALUES
+        (#{providerOrderId}, 'PENDING', #{issueMode}, #{seatMode}, #{credentialType},
+         #{failTicketIndex}, #{availableTime}, #{expectedTicketCount}, 0, 0,
+         NULL, NULL, #{dataVersion}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+            delivery_status='PENDING', issue_mode=VALUES(issue_mode), seat_mode=VALUES(seat_mode),
+            credential_type=VALUES(credential_type), fail_ticket_index=VALUES(fail_ticket_index),
+            available_time=VALUES(available_time), expected_ticket_count=VALUES(expected_ticket_count),
+            issued_count=0, failed_count=0, last_error_code=NULL, last_error_message=NULL,
+            data_version=VALUES(data_version), update_time=VALUES(update_time)
+    </insert>
+
+    <update id="bindDeliveryRequest">
+        UPDATE mock_ticket_source_delivery
+        SET request_idempotency_key = COALESCE(request_idempotency_key, #{idempotencyKey}),
+            data_version = #{dataVersion}, update_time = NOW()
+        WHERE provider_order_id = #{providerOrderId}
+          AND (request_idempotency_key IS NULL OR request_idempotency_key = #{idempotencyKey})
+    </update>
+
+    <insert id="upsertCredential" parameterType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceCredential">
+        INSERT INTO mock_ticket_source_credential
+        (provider_ticket_id, provider_order_id, ticket_index, ticket_status, credential_type,
+         credential_payload, credential_version, seat_zone, seat_row, seat_number, entrance_info,
+         issue_time, expire_time, error_code, error_message, data_version, create_time, update_time)
+        VALUES
+        (#{providerTicketId}, #{providerOrderId}, #{ticketIndex}, #{ticketStatus}, #{credentialType},
+         #{credentialPayload}, #{credentialVersion}, #{seatZone}, #{seatRow}, #{seatNumber}, #{entranceInfo},
+         #{issueTime}, #{expireTime}, #{errorCode}, #{errorMessage}, #{dataVersion}, #{createTime}, #{updateTime})
+        ON DUPLICATE KEY UPDATE
+          ticket_status=VALUES(ticket_status), credential_type=VALUES(credential_type),
+          credential_payload=VALUES(credential_payload), credential_version=VALUES(credential_version),
+          seat_zone=VALUES(seat_zone), seat_row=VALUES(seat_row), seat_number=VALUES(seat_number),
+          entrance_info=VALUES(entrance_info), issue_time=VALUES(issue_time), expire_time=VALUES(expire_time),
+          error_code=VALUES(error_code), error_message=VALUES(error_message),
+          data_version=VALUES(data_version), update_time=VALUES(update_time)
+    </insert>
+
+    <update id="updateDeliveryResult">
+        UPDATE mock_ticket_source_delivery
+        SET delivery_status=#{deliveryStatus}, issued_count=#{issuedCount}, failed_count=#{failedCount},
+            last_error_code=#{lastErrorCode}, last_error_message=#{lastErrorMessage},
+            data_version=#{dataVersion}, update_time=NOW()
+        WHERE provider_order_id=#{providerOrderId}
+    </update>
+
+    <update id="expireMockOrder">
+        UPDATE mock_ticket_source_order
+        SET order_status = 'EXPIRED',
+            cancel_time = COALESCE(cancel_time, #{cancelTime}),
+            cancel_reason = COALESCE(cancel_reason, 'RESERVATION_EXPIRED'),
+            data_version = #{dataVersion},
+            update_time = NOW()
+        WHERE provider_order_id = #{providerOrderId}
+          AND order_status = 'WAIT_PAY'
+    </update>
+
+
+    <sql id="MockRefundColumns">
+        provider_refund_id AS providerRefundId, provider_refund_no AS providerRefundNo,
+        provider_order_id AS providerOrderId, client_refund_no AS clientRefundNo,
+        refund_status AS refundStatus, refund_mode AS refundMode,
+        refund_amount AS refundAmount, fee_amount AS feeAmount, currency_code AS currencyCode,
+        reason, request_idempotency_key AS requestIdempotencyKey,
+        available_time AS availableTime, refund_time AS refundTime,
+        error_code AS errorCode, error_message AS errorMessage,
+        inventory_restored AS inventoryRestored, data_version AS dataVersion,
+        create_time AS createTime, update_time AS updateTime
+    </sql>
+
+    <select id="selectRefundByProviderRefundId"
+            resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceRefund">
+        SELECT <include refid="MockRefundColumns"/>
+        FROM mock_ticket_source_refund
+        WHERE provider_refund_id=#{providerRefundId}
+        LIMIT 1
+    </select>
+
+    <select id="selectRefundByIdempotencyKey"
+            resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceRefund">
+        SELECT <include refid="MockRefundColumns"/>
+        FROM mock_ticket_source_refund
+        WHERE request_idempotency_key=#{idempotencyKey}
+        LIMIT 1
+    </select>
+
+    <select id="selectRefundByProviderOrderId"
+            resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceRefund">
+        SELECT <include refid="MockRefundColumns"/>
+        FROM mock_ticket_source_refund
+        WHERE provider_order_id=#{providerOrderId}
+        ORDER BY create_time DESC
+        LIMIT 1
+    </select>
+
+    <select id="selectRefundPlan"
+            resultType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceRefundPlan">
+        SELECT provider_order_id AS providerOrderId,refund_mode AS refundMode,
+               available_time AS availableTime,data_version AS dataVersion,
+               create_time AS createTime,update_time AS updateTime
+        FROM mock_ticket_source_refund_plan
+        WHERE provider_order_id=#{providerOrderId}
+        LIMIT 1
+    </select>
+
+    <insert id="upsertRefundPlan">
+        INSERT INTO mock_ticket_source_refund_plan
+        (provider_order_id,refund_mode,available_time,data_version,create_time,update_time)
+        VALUES (#{providerOrderId},#{refundMode},#{availableTime},#{dataVersion},NOW(),NOW())
+        ON DUPLICATE KEY UPDATE refund_mode=VALUES(refund_mode),available_time=VALUES(available_time),
+          data_version=VALUES(data_version),update_time=NOW()
+    </insert>
+
+    <insert id="insertMockRefund" parameterType="com.example.maimaibackend.ticketsource.mock.model.MockTicketSourceRefund">
+        INSERT INTO mock_ticket_source_refund
+        (provider_refund_id,provider_refund_no,provider_order_id,client_refund_no,refund_status,
+         refund_mode,refund_amount,fee_amount,currency_code,reason,request_idempotency_key,
+         available_time,refund_time,error_code,error_message,inventory_restored,data_version,
+         create_time,update_time)
+        VALUES
+        (#{providerRefundId},#{providerRefundNo},#{providerOrderId},#{clientRefundNo},#{refundStatus},
+         #{refundMode},#{refundAmount},#{feeAmount},#{currencyCode},#{reason},#{requestIdempotencyKey},
+         #{availableTime},#{refundTime},#{errorCode},#{errorMessage},#{inventoryRestored},#{dataVersion},
+         #{createTime},#{updateTime})
+        ON DUPLICATE KEY UPDATE provider_refund_id=VALUES(provider_refund_id)
+    </insert>
+
+    <update id="markMockOrderRefunding">
+        UPDATE mock_ticket_source_order
+        SET order_status='REFUNDING',data_version=#{dataVersion},update_time=NOW()
+        WHERE provider_order_id=#{providerOrderId} AND order_status IN ('PAID','REFUNDING')
+    </update>
+
+    <update id="markMockOrderRefunded">
+        UPDATE mock_ticket_source_order
+        SET order_status='REFUNDED',data_version=#{dataVersion},update_time=NOW()
+        WHERE provider_order_id=#{providerOrderId} AND order_status IN ('PAID','REFUNDING','REFUNDED')
+    </update>
+
+    <update id="markMockRefundSuccess">
+        UPDATE mock_ticket_source_refund
+        SET refund_status='SUCCESS',refund_time=COALESCE(refund_time,#{refundTime}),
+            error_code=NULL,error_message=NULL,data_version=#{dataVersion},update_time=NOW()
+        WHERE provider_refund_id=#{providerRefundId} AND refund_status IN ('PENDING','PROCESSING','SUCCESS')
+    </update>
+
+    <update id="markMockRefundFailed">
+        UPDATE mock_ticket_source_refund
+        SET refund_status='FAILED',error_code=#{errorCode},error_message=#{errorMessage},
+            data_version=#{dataVersion},update_time=NOW()
+        WHERE provider_refund_id=#{providerRefundId}
+    </update>
+
+    <update id="markMockRefundInventoryRestored">
+        UPDATE mock_ticket_source_refund
+        SET inventory_restored=1,update_time=NOW()
+        WHERE provider_refund_id=#{providerRefundId} AND inventory_restored=0
+    </update>
+
+    <update id="makeMockRefundAvailableNow">
+        UPDATE mock_ticket_source_refund
+        SET available_time=#{availableTime},data_version=#{dataVersion},update_time=NOW()
+        WHERE provider_refund_id=#{providerRefundId} AND refund_status='PROCESSING'
+    </update>
+
+    <update id="voidCredentialsByOrderId">
+        UPDATE mock_ticket_source_credential
+        SET ticket_status='VOIDED',credential_payload=NULL,expire_time=COALESCE(expire_time,#{refundTime}),
+            error_code='REFUNDED',error_message='第三方退款成功，凭证作废',
+            data_version=#{dataVersion},update_time=NOW()
+        WHERE provider_order_id=#{providerOrderId} AND ticket_status IN ('ISSUED','VOIDED')
+    </update>
+
+    <update id="markDeliveryRefunded">
+        UPDATE mock_ticket_source_delivery
+        SET delivery_status='REFUNDED',data_version=#{dataVersion},update_time=NOW()
+        WHERE provider_order_id=#{providerOrderId} AND delivery_status IN ('ISSUED','PARTIAL','REFUNDED')
+    </update>
+
+</mapper>

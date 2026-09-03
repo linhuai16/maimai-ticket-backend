@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('第三方票源概览')}"></head>
+<body>
+<div class="admin-app">
+<aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+<div class="admin-main">
+<header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+
+<main class="page-content ticket-source-page" data-ts-page="overview">
+<section class="page-heading"><div><p class="breadcrumb">第三方票源 / 概览</p><h2>第三方票源管理后台</h2><p>集中查看 Provider、资源同步、活动素材、订单监控、自动履约、退票协同、回调、对账、账期结算和网关异常。正常交易由系统自动通过 Adapter 执行，后台主要用于配置、审核、监控和异常补偿。</p></div><button class="button button-secondary" id="tsOverviewRefresh" type="button">刷新</button></section>
+<section class="metric-grid ts-metric-grid" id="tsOverviewMetrics"><div class="metric-card"><p>正在读取运行状态...</p></div></section>
+<section class="dashboard-grid">
+  <div class="panel"><div class="panel-header"><div><h3>Provider 健康状态</h3><p>健康检查只读，不修改 provider 配置。</p></div></div><div class="panel-body" id="tsProviderHealth"><div class="table-empty">正在加载...</div></div></div>
+  <div class="panel"><div class="panel-header"><div><h3>重点异常</h3><p>冻结前优先处理 MANUAL_REVIEW、FAILED 和对账差异。</p></div></div><div class="panel-body"><div class="ts-quick-links">
+    <a href="/admin/ticket-sources/campaigns">活动素材待审核</a><a href="/admin/ticket-sources/orders">订单监控 / MANUAL_REVIEW</a><a href="/admin/ticket-sources/fulfillment">履约异常补偿</a><a href="/admin/ticket-sources/refunds">退票 / 退款协同</a><a href="/admin/ticket-sources/operations">回调 / 对账 / 日志</a><a href="/admin/ticket-sources/settlements">账期结算</a>
+  </div></div></div>
+</section>
+<section class="panel table-panel ts-section-gap"><div class="panel-header"><div><h3>Provider 配置</h3><p>providerCode / adapterCode 不在页面修改；凭证只维护 credentialRef 引用，不展示真实密钥。</p></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Provider</th><th>状态</th><th>优先级</th><th>Base URL</th><th>Credential Ref</th><th>超时</th><th>备注</th><th class="align-right">操作</th></tr></thead><tbody id="tsProviderConfigBody"></tbody></table></div></section>
+</main>
+</div></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/ticket-source-console.js(v='b12r6-width')}"></script>
+</body></html>

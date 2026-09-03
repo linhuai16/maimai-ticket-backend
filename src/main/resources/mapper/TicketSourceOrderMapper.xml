@@ -1,0 +1,344 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.TicketSourceOrderMapper">
+
+    <sql id="BridgeColumns">
+        b.bridge_id AS bridgeId,
+        b.order_id AS orderId,
+        o.order_no AS orderNo,
+        o.user_id AS userId,
+        o.order_status AS localOrderStatus,
+        o.payment_status AS paymentStatus,
+        b.provider_id AS providerId,
+        p.provider_code AS providerCode,
+        b.sku_mapping_id AS skuMappingId,
+        sm.sku_id AS skuId,
+        b.provider_order_id AS providerOrderId,
+        b.provider_order_no AS providerOrderNo,
+        b.provider_project_id AS providerProjectId,
+        b.provider_session_id AS providerSessionId,
+        b.provider_sku_id AS providerSkuId,
+        b.bridge_status AS bridgeStatus,
+        b.provider_order_status AS providerOrderStatus,
+        b.quantity AS quantity,
+        b.unit_price AS unitPrice,
+        b.pay_amount AS payAmount,
+        b.currency_code AS currencyCode,
+        b.create_idempotency_key AS createIdempotencyKey,
+        b.payment_idempotency_key AS paymentIdempotencyKey,
+        b.cancel_idempotency_key AS cancelIdempotencyKey,
+        b.reservation_expire_time AS reservationExpireTime,
+        b.provider_create_time AS providerCreateTime,
+        b.provider_pay_time AS providerPayTime,
+        b.provider_cancel_time AS providerCancelTime,
+        b.last_operation AS lastOperation,
+        b.last_sync_status AS lastSyncStatus,
+        b.last_error_code AS lastErrorCode,
+        b.last_error_message AS lastErrorMessage,
+        b.last_error_retryable AS lastErrorRetryable,
+        b.unknown_result_since AS unknownResultSince,
+        b.create_recovery_attempts AS createRecoveryAttempts,
+        b.last_recovery_time AS lastRecoveryTime,
+        b.create_time AS createTime,
+        b.update_time AS updateTime
+    </sql>
+
+    <select id="selectSkuContext"
+            resultType="com.example.maimaibackend.ticketsource.order.model.TicketSourceOrderSkuContext">
+        SELECT
+            p.provider_id AS providerId,
+            p.provider_code AS providerCode,
+            p.provider_status AS providerStatus,
+            pm.mapping_id AS projectMappingId,
+            sem.mapping_id AS sessionMappingId,
+            sm.mapping_id AS skuMappingId,
+            pm.mapping_status AS projectMappingStatus,
+            sem.mapping_status AS sessionMappingStatus,
+            sm.mapping_status AS skuMappingStatus,
+            pm.provider_project_id AS providerProjectId,
+            sem.provider_session_id AS providerSessionId,
+            sm.provider_sku_id AS providerSkuId,
+            sm.source_sale_status AS sourceSaleStatus,
+            sm.inventory_mode AS inventoryMode,
+            sm.available_stock_snapshot AS availableStockSnapshot,
+            sm.sale_price AS salePrice,
+            sm.currency_code AS currencyCode
+        FROM ticket_source_sku_mapping sm
+        JOIN ticket_source_session_mapping sem ON sem.mapping_id = sm.session_mapping_id
+        JOIN ticket_source_project_mapping pm ON pm.mapping_id = sem.project_mapping_id
+        JOIN ticket_source_provider p ON p.provider_id = sm.provider_id
+        WHERE sm.sku_id = #{skuId}
+        ORDER BY p.priority ASC, sm.mapping_id ASC
+        LIMIT 1
+    </select>
+
+    <insert id="insertBridge">
+        INSERT INTO ticket_source_order_bridge
+        (order_id, provider_id, sku_mapping_id, provider_project_id, provider_session_id,
+         provider_sku_id, bridge_status, provider_order_status, quantity, unit_price,
+         pay_amount, currency_code, create_idempotency_key, payment_idempotency_key,
+         cancel_idempotency_key, reservation_expire_time, last_operation, last_sync_status,
+         request_snapshot, create_time, update_time)
+        VALUES
+        (#{orderId}, #{providerId}, #{skuMappingId}, #{providerProjectId}, #{providerSessionId},
+         #{providerSkuId}, 'INITIATING', 'UNKNOWN', #{quantity}, #{unitPrice},
+         #{payAmount}, #{currencyCode}, #{createIdempotencyKey}, #{paymentIdempotencyKey},
+         #{cancelIdempotencyKey}, #{reservationExpireTime}, 'CREATE_ORDER', 'PENDING',
+         #{requestSnapshot}, NOW(), NOW())
+    </insert>
+
+    <select id="selectBridgeByOrderId"
+            resultType="com.example.maimaibackend.ticketsource.order.model.TicketSourceOrderBridge">
+        SELECT <include refid="BridgeColumns"/>
+        FROM ticket_source_order_bridge b
+        JOIN ticket_order o ON o.order_id = b.order_id
+        JOIN ticket_source_provider p ON p.provider_id = b.provider_id
+        JOIN ticket_source_sku_mapping sm ON sm.mapping_id = b.sku_mapping_id
+        WHERE b.order_id = #{orderId}
+        LIMIT 1
+    </select>
+
+    <select id="selectBridgeByOrderIdForUpdate"
+            resultType="com.example.maimaibackend.ticketsource.order.model.TicketSourceOrderBridge">
+        SELECT <include refid="BridgeColumns"/>
+        FROM ticket_source_order_bridge b
+        JOIN ticket_order o ON o.order_id = b.order_id
+        JOIN ticket_source_provider p ON p.provider_id = b.provider_id
+        JOIN ticket_source_sku_mapping sm ON sm.mapping_id = b.sku_mapping_id
+        WHERE b.order_id = #{orderId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectDueWaitPayOrders"
+            resultType="com.example.maimaibackend.ticketsource.order.model.TicketSourceOrderBridge">
+        SELECT <include refid="BridgeColumns"/>
+        FROM ticket_source_order_bridge b
+        JOIN ticket_order o ON o.order_id = b.order_id
+        JOIN ticket_source_provider p ON p.provider_id = b.provider_id
+        JOIN ticket_source_sku_mapping sm ON sm.mapping_id = b.sku_mapping_id
+        WHERE o.order_status = 'WAIT_PAY'
+          AND o.payment_status = 'UNPAID'
+          AND b.bridge_status IN ('RESERVED', 'PAYMENT_CONFIRMING')
+          AND COALESCE(b.reservation_expire_time, o.pay_expire_time) &lt;= NOW()
+        ORDER BY COALESCE(b.reservation_expire_time, o.pay_expire_time) ASC
+        LIMIT #{limit}
+    </select>
+
+    <update id="markReserved">
+        UPDATE ticket_source_order_bridge
+        SET provider_order_id = #{providerOrderId},
+            provider_order_no = #{providerOrderNo},
+            bridge_status = 'RESERVED',
+            provider_order_status = #{providerOrderStatus},
+            reservation_expire_time = #{reservationExpireTime},
+            provider_create_time = #{providerCreateTime},
+            last_operation = 'CREATE_ORDER',
+            last_sync_status = 'SUCCESS',
+            last_error_code = NULL,
+            last_error_message = NULL,
+            last_error_retryable = 0,
+            response_snapshot = #{responseSnapshot},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status IN ('INITIATING', 'FAILED')
+    </update>
+
+    <update id="markCreateFailed">
+        UPDATE ticket_source_order_bridge
+        SET bridge_status = 'FAILED',
+            last_operation = 'CREATE_ORDER',
+            last_sync_status = 'FAILED',
+            last_error_code = #{errorCode},
+            last_error_message = #{errorMessage},
+            last_error_retryable = #{retryable},
+            response_snapshot = #{responseSnapshot},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status = 'INITIATING'
+    </update>
+
+
+    <update id="markCreateUncertain">
+        UPDATE ticket_source_order_bridge
+        SET bridge_status = 'MANUAL_REVIEW',
+            last_operation = 'CREATE_ORDER',
+            last_sync_status = 'FAILED',
+            last_error_code = #{errorCode},
+            last_error_message = #{errorMessage},
+            last_error_retryable = #{retryable},
+            response_snapshot = #{responseSnapshot},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status = 'INITIATING'
+    </update>
+
+    <update id="markCreateCompensated">
+        UPDATE ticket_source_order_bridge
+        SET provider_order_id = #{providerOrderId},
+            provider_order_no = #{providerOrderNo},
+            bridge_status = 'FAILED',
+            provider_order_status = #{providerOrderStatus},
+            provider_cancel_time = #{providerCancelTime},
+            last_operation = 'CANCEL_ORDER',
+            last_sync_status = 'SUCCESS',
+            last_error_code = 'LOCAL_FINALIZE_FAILED_COMPENSATED',
+            last_error_message = '第三方预占已成功释放，本地订单已取消',
+            last_error_retryable = 0,
+            response_snapshot = #{responseSnapshot},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status IN ('INITIATING', 'FAILED')
+    </update>
+
+    <update id="markManualReview">
+        UPDATE ticket_source_order_bridge
+        SET provider_order_id = COALESCE(provider_order_id, #{providerOrderId}),
+            provider_order_no = COALESCE(provider_order_no, #{providerOrderNo}),
+            bridge_status = 'MANUAL_REVIEW',
+            provider_order_status = COALESCE(#{providerOrderStatus}, provider_order_status),
+            last_operation = 'CANCEL_ORDER',
+            last_sync_status = 'FAILED',
+            last_error_code = #{errorCode},
+            last_error_message = #{errorMessage},
+            last_error_retryable = #{retryable},
+            response_snapshot = #{responseSnapshot},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status IN ('INITIATING', 'FAILED', 'RESERVED', 'PAYMENT_CONFIRMING', 'CANCELING', 'MANUAL_REVIEW')
+    </update>
+
+    <update id="markPaymentConfirming">
+        UPDATE ticket_source_order_bridge
+        SET bridge_status = 'PAYMENT_CONFIRMING',
+            last_operation = 'CONFIRM_PAYMENT',
+            last_sync_status = 'PENDING',
+            last_error_code = NULL,
+            last_error_message = NULL,
+            last_error_retryable = 0,
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status IN ('RESERVED', 'PAYMENT_CONFIRMING')
+    </update>
+
+    <update id="restoreReservedAfterPaymentFailure">
+        UPDATE ticket_source_order_bridge
+        SET bridge_status = 'RESERVED',
+            last_operation = 'CONFIRM_PAYMENT',
+            last_sync_status = 'FAILED',
+            last_error_code = #{errorCode},
+            last_error_message = #{errorMessage},
+            last_error_retryable = #{retryable},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status = 'PAYMENT_CONFIRMING'
+    </update>
+
+    <update id="markPaid">
+        UPDATE ticket_source_order_bridge
+        SET bridge_status = 'PAID',
+            provider_order_status = #{providerOrderStatus},
+            provider_pay_time = #{providerPayTime},
+            last_operation = 'CONFIRM_PAYMENT',
+            last_sync_status = 'SUCCESS',
+            last_error_code = NULL,
+            last_error_message = NULL,
+            last_error_retryable = 0,
+            response_snapshot = #{responseSnapshot},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status IN ('RESERVED', 'PAYMENT_CONFIRMING', 'PAID')
+    </update>
+
+    <update id="markCanceling">
+        UPDATE ticket_source_order_bridge
+        SET bridge_status = 'CANCELING',
+            last_operation = 'CANCEL_ORDER',
+            last_sync_status = 'PENDING',
+            last_error_code = NULL,
+            last_error_message = NULL,
+            last_error_retryable = 0,
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status IN ('RESERVED', 'PAYMENT_CONFIRMING', 'CANCELING', 'MANUAL_REVIEW')
+    </update>
+
+    <update id="restoreReservedAfterCancelFailure">
+        UPDATE ticket_source_order_bridge
+        SET bridge_status = 'RESERVED',
+            last_operation = 'CANCEL_ORDER',
+            last_sync_status = 'FAILED',
+            last_error_code = #{errorCode},
+            last_error_message = #{errorMessage},
+            last_error_retryable = #{retryable},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status = 'CANCELING'
+    </update>
+
+    <update id="markCanceled">
+        UPDATE ticket_source_order_bridge
+        SET bridge_status = #{bridgeStatus},
+            provider_order_status = #{providerOrderStatus},
+            provider_cancel_time = #{providerCancelTime},
+            last_operation = 'CANCEL_ORDER',
+            last_sync_status = 'SUCCESS',
+            last_error_code = NULL,
+            last_error_message = NULL,
+            last_error_retryable = 0,
+            response_snapshot = #{responseSnapshot},
+            version = version + 1,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND bridge_status IN ('RESERVED', 'PAYMENT_CONFIRMING', 'CANCELING', 'CANCELED', 'EXPIRED')
+    </update>
+
+    <update id="updateOrderCanceledWithoutLocalStock">
+        UPDATE ticket_order
+        SET order_status = 'CANCELED',
+            cancel_time = #{cancelTime},
+            update_time = #{cancelTime}
+        WHERE order_id = #{orderId}
+          AND order_status = 'WAIT_PAY'
+          AND fulfillment_mode = 'TICKET_SOURCE'
+    </update>
+
+    <update id="updateOrderPaymentStatus">
+        UPDATE ticket_order
+        SET payment_status = #{paymentStatus},
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+    </update>
+
+    <update id="updateProviderInventorySnapshot">
+        UPDATE ticket_source_sku_mapping sm
+        JOIN ticket_sku sku ON sku.sku_id = sm.sku_id
+        SET sm.available_stock_snapshot = #{remainingStock},
+            sm.source_data_version = COALESCE(#{dataVersion}, sm.source_data_version),
+            sm.last_sync_status = 'SUCCESS',
+            sm.last_inventory_sync_time = NOW(),
+            sm.last_error_code = NULL,
+            sm.last_error_message = NULL,
+            sm.update_time = NOW(),
+            sku.stock_available = #{remainingStock},
+            sku.version = sku.version + 1,
+            sku.update_time = NOW()
+        WHERE sm.provider_id = #{providerId}
+          AND sm.mapping_id = #{skuMappingId}
+          AND sm.sku_id = #{skuId}
+          AND #{remainingStock} IS NOT NULL
+    </update>
+
+</mapper>

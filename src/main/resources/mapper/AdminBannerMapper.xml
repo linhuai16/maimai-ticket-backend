@@ -1,0 +1,144 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminBannerMapper">
+
+    <sql id="BannerWhereSql">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    b.banner_title LIKE CONCAT('%', #{keyword}, '%')
+                    OR p.title LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="enableStatus != null and enableStatus != ''">
+                AND b.enable_status = #{enableStatus}
+            </if>
+        </where>
+    </sql>
+
+    <sql id="BannerSelectSql">
+        SELECT
+            b.banner_id AS bannerId,
+            b.banner_title AS bannerTitle,
+            b.image_url AS imageUrl,
+            b.target_project_id AS targetProjectId,
+            p.title AS targetProjectTitle,
+            p.project_status AS targetProjectStatus,
+            b.target_session_id AS targetSessionId,
+            s.city_name AS targetSessionCityName,
+            s.station_name AS targetSessionStationName,
+            s.start_time AS targetSessionStartTime,
+            s.session_status AS targetSessionStatus,
+            b.enable_status AS enableStatus,
+            b.sort_order AS sortOrder,
+            b.start_time AS startTime,
+            b.end_time AS endTime,
+            CASE
+                WHEN p.project_id IS NULL THEN 'TARGET_PROJECT_MISSING'
+                WHEN b.target_session_id IS NOT NULL AND s.session_id IS NULL THEN 'TARGET_SESSION_MISSING'
+                WHEN p.project_status = 'OFFLINE' THEN 'TARGET_PROJECT_OFFLINE'
+                WHEN s.session_status = 'OFFLINE' THEN 'TARGET_SESSION_OFFLINE'
+                WHEN b.enable_status != 'ENABLED' THEN 'DISABLED'
+                WHEN NOW() <![CDATA[<]]> b.start_time THEN 'NOT_STARTED'
+                WHEN NOW() <![CDATA[>]]> b.end_time THEN 'EXPIRED'
+                ELSE 'EFFECTIVE'
+            END AS effectiveStatus,
+            b.create_time AS createTime,
+            b.update_time AS updateTime
+        FROM banner_item b
+        LEFT JOIN performance_project p ON p.project_id = b.target_project_id
+        LEFT JOIN performance_session s
+            ON s.session_id = b.target_session_id
+           AND s.project_id = b.target_project_id
+    </sql>
+
+    <select id="countBannerList" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM banner_item b
+        LEFT JOIN performance_project p ON p.project_id = b.target_project_id
+        <include refid="BannerWhereSql"/>
+    </select>
+
+    <select id="selectBannerList" resultType="com.example.maimaibackend.vo.admin.AdminBannerVO">
+        <include refid="BannerSelectSql"/>
+        <include refid="BannerWhereSql"/>
+        ORDER BY b.sort_order ASC, b.banner_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectBannerById" resultType="com.example.maimaibackend.vo.admin.AdminBannerVO">
+        <include refid="BannerSelectSql"/>
+        WHERE b.banner_id = #{bannerId}
+        LIMIT 1
+    </select>
+
+    <select id="countBannerById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM banner_item WHERE banner_id = #{bannerId}
+    </select>
+
+    <select id="countProjectById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM performance_project WHERE project_id = #{projectId}
+    </select>
+
+    <select id="selectProjectStatus" resultType="java.lang.String">
+        SELECT project_status
+        FROM performance_project
+        WHERE project_id = #{projectId}
+        LIMIT 1
+    </select>
+
+    <select id="countSessionBelongProject" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM performance_session
+        WHERE session_id = #{sessionId}
+          AND project_id = #{projectId}
+    </select>
+
+    <select id="selectSessionStatusBelongProject" resultType="java.lang.String">
+        SELECT session_status
+        FROM performance_session
+        WHERE session_id = #{sessionId}
+          AND project_id = #{projectId}
+        LIMIT 1
+    </select>
+
+    <insert id="insertBanner"
+            parameterType="com.example.maimaibackend.dto.admin.AdminSaveBannerRequest"
+            useGeneratedKeys="true"
+            keyProperty="bannerId">
+        INSERT INTO banner_item (
+            banner_title, image_url, target_project_id, target_session_id,
+            enable_status, sort_order, start_time, end_time, create_time, update_time
+        ) VALUES (
+            #{bannerTitle}, #{imageUrl}, #{targetProjectId}, #{targetSessionId},
+            #{enableStatus}, #{sortOrder}, #{startTime}, #{endTime}, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateBanner" parameterType="com.example.maimaibackend.dto.admin.AdminSaveBannerRequest">
+        UPDATE banner_item
+        SET banner_title = #{bannerTitle},
+            image_url = #{imageUrl},
+            target_project_id = #{targetProjectId},
+            target_session_id = #{targetSessionId},
+            enable_status = #{enableStatus},
+            sort_order = #{sortOrder},
+            start_time = #{startTime},
+            end_time = #{endTime},
+            update_time = NOW()
+        WHERE banner_id = #{bannerId}
+    </update>
+
+    <update id="updateBannerStatus">
+        UPDATE banner_item
+        SET enable_status = #{enableStatus},
+            update_time = NOW()
+        WHERE banner_id = #{bannerId}
+    </update>
+
+    <delete id="deleteBanner">
+        DELETE FROM banner_item WHERE banner_id = #{bannerId}
+    </delete>
+</mapper>

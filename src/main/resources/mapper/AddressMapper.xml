@@ -1,0 +1,147 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.AddressMapper">
+
+    <select id="selectAddressList" resultType="com.example.maimaibackend.vo.address.AddressDetailVO">
+        SELECT
+            address_id AS addressId,
+            receiver_name AS receiverName,
+            receiver_phone AS receiverPhone,
+            province AS province,
+            city AS city,
+            district AS district,
+            country_code AS countryCode,
+            province_code AS provinceCode,
+            city_code AS cityCode,
+            area_code AS areaCode,
+            detail_address AS detailAddress,
+            is_default AS isDefault
+        FROM user_address
+        WHERE user_id = #{userId}
+        ORDER BY is_default DESC, update_time DESC, address_id DESC
+    </select>
+
+    <select id="selectAddressDetail" resultType="com.example.maimaibackend.vo.address.AddressDetailVO">
+        SELECT
+            address_id AS addressId,
+            receiver_name AS receiverName,
+            receiver_phone AS receiverPhone,
+            province AS province,
+            city AS city,
+            district AS district,
+            country_code AS countryCode,
+            province_code AS provinceCode,
+            city_code AS cityCode,
+            area_code AS areaCode,
+            detail_address AS detailAddress,
+            is_default AS isDefault
+        FROM user_address
+        WHERE user_id = #{userId}
+          AND address_id = #{addressId}
+    </select>
+
+    <select id="countByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM user_address
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="countDefaultByUserId" resultType="int">
+        SELECT COUNT(*)
+        FROM user_address
+        WHERE user_id = #{userId}
+          AND is_default = 1
+    </select>
+
+    <select id="countDuplicateAddress"
+            parameterType="com.example.maimaibackend.dto.address.AddressSaveDTO"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM user_address
+        WHERE user_id = #{userId}
+          AND receiver_name = #{receiverName}
+          AND receiver_phone = #{receiverPhone}
+          AND province = #{province}
+          AND city = #{city}
+          AND district = #{district}
+          AND detail_address = #{detailAddress}
+    </select>
+
+    <select id="countDuplicateAddressExcludeSelf"
+            parameterType="com.example.maimaibackend.dto.address.AddressSaveDTO"
+            resultType="int">
+        SELECT COUNT(*)
+        FROM user_address
+        WHERE user_id = #{userId}
+          AND address_id != #{addressId}
+          AND receiver_name = #{receiverName}
+          AND receiver_phone = #{receiverPhone}
+          AND province = #{province}
+          AND city = #{city}
+          AND district = #{district}
+          AND detail_address = #{detailAddress}
+    </select>
+
+    <update id="clearDefault">
+        UPDATE user_address
+        SET is_default = 0,
+            update_time = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+    <insert id="insertAddress"
+            parameterType="com.example.maimaibackend.dto.address.AddressSaveDTO"
+            useGeneratedKeys="true"
+            keyProperty="addressId">
+        INSERT INTO user_address
+        (user_id, receiver_name, receiver_phone, province, city, district,
+         country_code, province_code, city_code, area_code, detail_address, is_default, create_time, update_time)
+        VALUES
+        (#{userId}, #{receiverName}, #{receiverPhone}, #{province}, #{city}, #{district},
+         #{countryCode}, #{provinceCode}, #{cityCode}, #{areaCode}, #{detailAddress}, #{isDefault}, NOW(), NOW())
+    </insert>
+
+    <update id="updateAddress" parameterType="com.example.maimaibackend.dto.address.AddressSaveDTO">
+        UPDATE user_address
+        SET receiver_name = #{receiverName},
+            receiver_phone = #{receiverPhone},
+            province = #{province},
+            city = #{city},
+            district = #{district},
+            country_code = #{countryCode},
+            province_code = #{provinceCode},
+            city_code = #{cityCode},
+            area_code = #{areaCode},
+            detail_address = #{detailAddress},
+            is_default = #{isDefault},
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND address_id = #{addressId}
+    </update>
+
+    <delete id="deleteAddress">
+        DELETE FROM user_address
+        WHERE user_id = #{userId}
+          AND address_id = #{addressId}
+    </delete>
+
+    <update id="setDefault">
+        UPDATE user_address
+        SET is_default = 1,
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND address_id = #{addressId}
+    </update>
+
+    <select id="selectFirstAddressId" resultType="long">
+        SELECT address_id
+        FROM user_address
+        WHERE user_id = #{userId}
+        ORDER BY update_time DESC, address_id DESC
+        LIMIT 1
+    </select>
+
+</mapper>

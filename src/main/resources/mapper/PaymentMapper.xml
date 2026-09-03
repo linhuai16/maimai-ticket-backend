@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.PaymentMapper">
+
+    <select id="selectOrderForPay"
+            resultType="com.example.maimaibackend.dto.payment.PayOrderBaseDTO">
+        SELECT
+            order_id AS orderId,
+            order_no AS orderNo,
+            user_id AS userId,
+            order_status AS orderStatus,
+            pay_amount AS payAmount,
+            pay_expire_time AS payExpireTime,
+            pay_time AS payTime,
+            fulfillment_mode AS fulfillmentMode,
+            payment_status AS paymentStatus
+        FROM ticket_order
+        WHERE order_id = #{orderId}
+          AND user_id = #{userId}
+        LIMIT 1
+        FOR UPDATE
+    </select>
+
+    <select id="selectOrderItemsForPay"
+            resultType="com.example.maimaibackend.dto.payment.PayOrderItemDTO">
+        SELECT
+            order_item_id AS orderItemId,
+            order_id AS orderId,
+            sku_id AS skuId,
+            quantity AS quantity
+        FROM order_item
+        WHERE order_id = #{orderId}
+        ORDER BY order_item_id ASC
+    </select>
+
+    <select id="selectOrderAudiencesForTicket"
+            resultType="com.example.maimaibackend.dto.payment.PayOrderAudienceDTO">
+        SELECT
+            order_audience_id AS orderAudienceId,
+            order_id AS orderId
+        FROM order_audience
+        WHERE order_id = #{orderId}
+        ORDER BY order_audience_id ASC
+    </select>
+
+    <select id="countElectronicTicketsByOrderId" resultType="int">
+        SELECT COUNT(*)
+        FROM electronic_ticket
+        WHERE order_id = #{orderId}
+    </select>
+
+    <update id="reduceLockedStockToSold">
+        UPDATE ticket_sku
+        SET stock_locked = stock_locked - #{quantity},
+            sold_count = sold_count + #{quantity},
+            version = version + 1,
+            update_time = NOW()
+        WHERE sku_id = #{skuId}
+          AND stock_locked &gt;= #{quantity}
+    </update>
+
+    <update id="updateOrderPaid">
+        UPDATE ticket_order
+        SET order_status = 'WAIT_USE',
+            payment_status = CASE WHEN fulfillment_mode = 'TICKET_SOURCE' THEN 'PROVIDER_CONFIRMED' ELSE 'PAID' END,
+            pay_method = #{payMethod},
+            pay_time = #{payTime},
+            update_time = #{payTime}
+        WHERE order_id = #{orderId}
+          AND order_status = 'WAIT_PAY'
+    </update>
+
+    <insert id="insertElectronicTicket">
+        INSERT INTO electronic_ticket
+        (ticket_no, order_id, order_item_id, order_audience_id, ticket_status,
+         qr_code_value, seat_info, generate_time, check_time, expire_time,
+         abnormal_reason, create_time, update_time)
+        VALUES
+        (#{ticketNo}, #{orderId}, #{orderItemId}, #{orderAudienceId}, #{ticketStatus},
+         NULL, NULL, NULL, NULL, NULL,
+         NULL, #{now}, #{now})
+    </insert>
+
+</mapper>

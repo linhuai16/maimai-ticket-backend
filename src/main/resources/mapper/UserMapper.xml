@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.UserMapper">
+
+    <select id="countUserById" resultType="int">
+        SELECT COUNT(*)
+        FROM user_account
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectUserById" resultType="com.example.maimaibackend.vo.user.MineUserVO">
+        SELECT
+            user_id AS userId,
+            phone AS phone,
+            nickname AS nickname,
+            avatar_url AS avatarUrl,
+            account_status AS accountStatus
+        FROM user_account
+        WHERE user_id = #{userId}
+    </select>
+
+    <select id="selectUserByPhone" resultType="com.example.maimaibackend.vo.user.MineUserVO">
+        SELECT
+            user_id AS userId,
+            phone AS phone,
+            nickname AS nickname,
+            avatar_url AS avatarUrl,
+            account_status AS accountStatus
+        FROM user_account
+        WHERE phone = #{phone}
+    </select>
+
+    <select id="countPhoneUsedByOther" resultType="int">
+        SELECT COUNT(*)
+        FROM user_account
+        WHERE phone = #{phone}
+          AND user_id != #{userId}
+    </select>
+
+    <insert id="insertUser"
+            parameterType="com.example.maimaibackend.vo.user.MineUserVO"
+            useGeneratedKeys="true"
+            keyProperty="userId">
+        INSERT INTO user_account
+        (phone, nickname, avatar_url, account_status, create_time, update_time)
+        VALUES
+        (#{phone}, #{nickname}, #{avatarUrl}, 'NORMAL', NOW(), NOW())
+    </insert>
+
+    <update id="updateUserProfile">
+        UPDATE user_account
+        SET nickname = #{nickname},
+            phone = #{phone},
+            avatar_url = #{avatarUrl},
+            update_time = NOW()
+        WHERE user_id = #{userId}
+    </update>
+
+</mapper>

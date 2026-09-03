@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('退款规则')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content">
+            <section class="page-heading">
+                <div><p class="breadcrumb">运营配置 / 退款规则</p><h2>退款规则来源查看</h2><p>查看演出项目退款规则。</p></div>
+                <span class="status-badge">只读</span>
+            </section>
+            <section class="panel filter-panel">
+                <form id="refundRuleFilterForm" class="filter-grid operation-filter-grid">
+                    <label class="field compact"><span>关键词</span><input id="refundRuleKeyword" type="search" placeholder="演出项目名称" maxlength="100"></label>
+                    <label class="field compact"><span>退款类型</span><select id="refundRuleTypeFilter"><option value="">全部类型</option><option value="CONDITIONAL_REFUND">条件退</option><option value="NO_REFUND">不可退</option><option value="MISSING">待同步</option></select></label>
+                    <div class="filter-actions"><button class="button button-primary" type="submit">查询</button><button class="button button-secondary" id="refundRuleResetButton" type="button">重置</button></div>
+                </form>
+            </section>
+            <section class="panel table-panel">
+                <div class="panel-header table-header"><div><h3>退款规则数据</h3><p id="refundRuleTotalText">正在读取...</p></div><button class="button button-ghost button-small" id="refundRuleRefreshButton" type="button">刷新</button></div>
+                <div class="table-wrap"><table class="data-table operation-table"><thead><tr><th>演出项目</th><th>项目状态</th><th>退款类型</th><th>阶梯数</th><th>手续费区间</th><th>更新时间</th><th class="align-right">操作</th></tr></thead><tbody id="refundRuleTableBody"><tr><td colspan="7"><div class="table-empty">正在加载退款规则...</div></td></tr></tbody></table></div>
+                <div class="table-footer"><label class="page-size-field">每页 <select id="refundRulePageSize"><option value="10">10</option><option value="20">20</option><option value="50">50</option></select> 条</label><div id="refundRulePagination" class="pagination"></div></div>
+            </section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/refund-rule.js}"></script>
+</body>
+</html>

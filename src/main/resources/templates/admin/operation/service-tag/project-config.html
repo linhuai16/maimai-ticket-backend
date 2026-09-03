@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('项目服务标签配置')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content">
+            <section class="page-heading"><div><p class="breadcrumb">运营配置 / 服务标签 / 项目关联</p><h2>项目服务标签配置</h2><p>配置当前演出的服务标签。</p></div><a class="button button-secondary" th:href="@{/admin/operation/service-tags}">返回标签列表</a></section>
+            <section class="panel selector-panel">
+                <div class="project-selection-card"><div class="project-selection-copy"><span>当前演出项目</span><strong id="serviceTagProjectTitle">尚未选择项目</strong><small id="serviceTagProjectMeta">请选择需要配置服务标签的项目。</small></div><button class="button button-primary" id="serviceTagChooseProjectButton" type="button">选择项目</button></div>
+            </section>
+            <section class="config-layout">
+                <article class="panel config-panel">
+                    <div class="panel-header"><div><h3>可选手工标签</h3><p>勾选后加入项目标签，可通过右侧调整顺序。</p></div><label class="field compact config-search"><span>筛选</span><input id="serviceTagChoiceKeyword" type="search" placeholder="标签名称"></label></div>
+                    <div id="serviceTagChoiceList" class="choice-list"><div class="table-empty">请先选择项目</div></div>
+                </article>
+                <article class="panel config-panel">
+                    <div class="panel-header"><div><h3>已选标签</h3><p>由上到下为前台展示顺序。</p></div><button class="button button-primary button-small" id="serviceTagConfigSaveButton" type="button" disabled>保存配置</button></div>
+                    <div id="serviceTagSelectedList" class="ordered-list"><div class="table-empty">暂未选择标签</div></div>
+                    <div class="config-subsection"><h4>Provider 同步标签</h4><p>第三方同步标签，只读。</p><div id="serviceTagProviderList" class="tag-pill-list"><span class="table-meta">暂无 Provider 同步标签</span></div></div>
+                    <div class="config-subsection"><h4>自动退款标签</h4><p>退款标签只读。</p><div id="serviceTagAutomaticList" class="tag-pill-list"><span class="table-meta">暂无自动退款标签</span></div></div>
+                </article>
+            </section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/components/project-selector :: selector}"></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/project-selector.js}"></script>
+<script th:src="@{/admin/js/service-tag-config.js}"></script>
+</body>
+</html>

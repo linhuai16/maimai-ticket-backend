@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminVenueMapper">
+
+    <sql id="NormalizedVenueCityExpression">
+        TRIM(TRAILING '市' FROM TRIM(v.city_name))
+    </sql>
+
+    <sql id="NormalizedParamCityExpression">
+        TRIM(TRAILING '市' FROM TRIM(#{cityName}))
+    </sql>
+
+    <sql id="VenueWhereSql">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    v.venue_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR v.address LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="cityName != null and cityName != ''">
+                AND <include refid="NormalizedVenueCityExpression"/>
+                    = <include refid="NormalizedParamCityExpression"/>
+            </if>
+        </where>
+    </sql>
+
+    <sql id="VenueColumns">
+        v.venue_id AS venueId,
+        v.venue_name AS venueName,
+        v.city_name AS cityName,
+        v.address AS address,
+        v.longitude AS longitude,
+        v.latitude AS latitude,
+        IFNULL(s_stat.session_count, 0) AS sessionCount,
+        v.create_time AS createTime,
+        v.update_time AS updateTime
+    </sql>
+
+    <select id="countVenueList" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM venue v
+        <include refid="VenueWhereSql"/>
+    </select>
+
+    <select id="selectVenueList" resultType="com.example.maimaibackend.vo.admin.AdminVenueVO">
+        SELECT
+            <include refid="VenueColumns"/>
+        FROM venue v
+        LEFT JOIN (
+            SELECT venue_id, COUNT(*) AS session_count
+            FROM performance_session
+            GROUP BY venue_id
+        ) s_stat ON s_stat.venue_id = v.venue_id
+        <include refid="VenueWhereSql"/>
+        ORDER BY v.city_name ASC, v.venue_id ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectCanonicalCityName" resultType="java.lang.String">
+        SELECT v.city_name
+        FROM venue v
+        WHERE <include refid="NormalizedVenueCityExpression"/>
+              = <include refid="NormalizedParamCityExpression"/>
+        GROUP BY v.city_name
+        ORDER BY COUNT(*) DESC, v.city_name ASC
+        LIMIT 1
+    </select>
+
+    <select id="selectMatchedCityNameByStationName" resultType="java.lang.String">
+        SELECT v.city_name
+        FROM venue v
+        WHERE TRIM(#{stationName}) LIKE CONCAT(
+            TRIM(TRAILING '市' FROM TRIM(v.city_name)), '%'
+        )
+        GROUP BY v.city_name
+        ORDER BY CHAR_LENGTH(TRIM(TRAILING '市' FROM TRIM(v.city_name))) DESC,
+                 v.city_name ASC
+        LIMIT 1
+    </select>
+
+    <select id="selectVenueOptions" resultType="com.example.maimaibackend.vo.admin.AdminVenueVO">
+        SELECT
+            <include refid="VenueColumns"/>
+        FROM venue v
+        LEFT JOIN (
+            SELECT venue_id, COUNT(*) AS session_count
+            FROM performance_session
+            GROUP BY venue_id
+        ) s_stat ON s_stat.venue_id = v.venue_id
+        WHERE <include refid="NormalizedVenueCityExpression"/>
+              = <include refid="NormalizedParamCityExpression"/>
+        ORDER BY v.venue_name ASC, v.venue_id ASC
+        LIMIT #{limit}
+    </select>
+
+    <select id="selectVenueDetail" resultType="com.example.maimaibackend.vo.admin.AdminVenueVO">
+        SELECT
+            <include refid="VenueColumns"/>
+        FROM venue v
+        LEFT JOIN (
+            SELECT venue_id, COUNT(*) AS session_count
+            FROM performance_session
+            GROUP BY venue_id
+        ) s_stat ON s_stat.venue_id = v.venue_id
+        WHERE v.venue_id = #{venueId}
+        LIMIT 1
+    </select>
+
+    <select id="countVenueById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM venue WHERE venue_id = #{venueId}
+    </select>
+
+    <select id="countDuplicateVenue" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM venue
+        WHERE city_name = #{cityName}
+          AND venue_name = #{venueName}
+          AND address = #{address}
+        <if test="excludeVenueId != null">
+          AND venue_id &lt;&gt; #{excludeVenueId}
+        </if>
+    </select>
+
+    <insert id="insertVenue" parameterType="com.example.maimaibackend.dto.admin.AdminVenueSaveDTO"
+            useGeneratedKeys="true" keyProperty="venueId">
+        INSERT INTO venue (
+            venue_name, city_name, address, longitude, latitude,
+            create_time, update_time
+        ) VALUES (
+            #{venueName}, #{cityName}, #{address}, #{longitude}, #{latitude},
+            NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateVenue" parameterType="com.example.maimaibackend.dto.admin.AdminVenueSaveDTO">
+        UPDATE venue
+        SET venue_name = #{venueName},
+            city_name = #{cityName},
+            address = #{address},
+            longitude = #{longitude},
+            latitude = #{latitude},
+            update_time = NOW()
+        WHERE venue_id = #{venueId}
+    </update>
+
+    <select id="countSessionsByVenueId" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM performance_session WHERE venue_id = #{venueId}
+    </select>
+
+    <delete id="deleteVenue">
+        DELETE FROM venue WHERE venue_id = #{venueId}
+    </delete>
+
+</mapper>

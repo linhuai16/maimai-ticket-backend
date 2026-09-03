@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('页面错误')}"></head>
+<body>
+<main class="standalone-error">
+    <section class="panel error-card">
+        <span class="empty-state-icon">!</span>
+        <h1>页面暂时无法打开</h1>
+        <p th:text="${message}">页面加载失败，请稍后重试。</p>
+        <div class="error-actions">
+            <a class="button button-primary" th:href="@{/admin/dashboard}">返回后台首页</a>
+            <a class="button button-secondary" th:href="@{/admin/login}">重新登录</a>
+        </div>
+    </section>
+</main>
+</body>
+</html>

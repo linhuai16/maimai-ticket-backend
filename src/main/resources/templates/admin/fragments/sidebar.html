@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<aside class="admin-sidebar" th:fragment="sidebar(activeMenu)">
+    <a class="brand" th:href="@{/admin/dashboard}">
+        <span class="brand-mark">M</span>
+        <span class="brand-copy"><strong>麦麦票务</strong><small>运营管理后台</small></span>
+    </a>
+    <nav class="side-nav" aria-label="后台导航">
+        <div class="nav-group">
+            <p class="nav-group-title">概览</p>
+            <a class="nav-item" th:classappend="${activeMenu == 'dashboard' ? ' active' : ''}" th:href="@{/admin/dashboard}"><span class="nav-icon">⌂</span><span>数据概览</span></a>
+        </div>
+        <div class="nav-group">
+            <p class="nav-group-title">演出管理</p>
+            <a class="nav-item" th:classappend="${activeMenu == 'performance-projects' ? ' active' : ''}" th:href="@{/admin/performances/projects}"><span class="nav-icon">演</span><span>演出项目</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'performance-sessions' ? ' active' : ''}" th:href="@{/admin/performances/sessions}"><span class="nav-icon">场</span><span>演出场次</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'venues' ? ' active' : ''}" th:href="@{/admin/venues}"><span class="nav-icon">馆</span><span>场馆管理</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'performance-skus' ? ' active' : ''}" th:href="@{/admin/performances/skus}"><span class="nav-icon">档</span><span>票档管理</span></a>
+        </div>
+        <div class="nav-group">
+            <p class="nav-group-title">交易管理</p>
+            <a class="nav-item" th:classappend="${activeMenu == 'orders' ? ' active' : ''}" th:href="@{/admin/orders}"><span class="nav-icon">单</span><span>订单管理</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'refunds' ? ' active' : ''}" th:href="@{/admin/refunds}"><span class="nav-icon">退</span><span>退款管理</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'users' ? ' active' : ''}" th:href="@{/admin/users}"><span class="nav-icon">用</span><span>用户管理</span></a>
+        </div>
+        <div class="nav-group">
+            <p class="nav-group-title">第三方票源</p>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-source-overview' ? ' active' : ''}" th:href="@{/admin/ticket-sources}"><span class="nav-icon">源</span><span>票源概览</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-source-campaigns' ? ' active' : ''}" th:href="@{/admin/ticket-sources/campaigns}"><span class="nav-icon">活</span><span>活动与优惠</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-source-orders' ? ' active' : ''}" th:href="@{/admin/ticket-sources/orders}"><span class="nav-icon">单</span><span>订单监控</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-source-fulfillment' ? ' active' : ''}" th:href="@{/admin/ticket-sources/fulfillment}"><span class="nav-icon">履</span><span>履约监控</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-source-refunds' ? ' active' : ''}" th:href="@{/admin/ticket-sources/refunds}"><span class="nav-icon">退</span><span>退票 / 退款协同</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-source-operations' ? ' active' : ''}" th:href="@{/admin/ticket-sources/operations}"><span class="nav-icon">对</span><span>回调 / 对账 / 日志</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-source-settlements' ? ' active' : ''}" th:href="@{/admin/ticket-sources/settlements}"><span class="nav-icon">结</span><span>账期结算</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-source-mock' ? ' active' : ''}" th:href="@{/admin/ticket-sources/mock}"><span class="nav-icon">测</span><span>MOCK_DAMAI</span></a>
+        </div>
+        <div class="nav-group">
+            <p class="nav-group-title">运营配置</p>
+            <a class="nav-item" th:classappend="${activeMenu == 'operation-banners' ? ' active' : ''}" th:href="@{/admin/operation/banners}"><span class="nav-icon">B</span><span>Banner</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'operation-categories' ? ' active' : ''}" th:href="@{/admin/operation/categories}"><span class="nav-icon">分</span><span>演出分类（只读）</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'operation-service-tags' ? ' active' : ''}" th:href="@{/admin/operation/service-tags}"><span class="nav-icon">签</span><span>服务标签管理</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'operation-notices' ? ' active' : ''}" th:href="@{/admin/operation/notices}"><span class="nav-icon">知</span><span>观演须知管理</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'operation-refund-rules' ? ' active' : ''}" th:href="@{/admin/operation/refund-rules}"><span class="nav-icon">规</span><span>退款规则（只读）</span></a>
+        </div>
+        <div class="nav-group">
+            <p class="nav-group-title">票务管理</p>
+            <a class="nav-item" th:classappend="${activeMenu == 'tickets' ? ' active' : ''}" th:href="@{/admin/tickets}"><span class="nav-icon">票</span><span>票凭证监控</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-checks' ? ' active' : ''}" th:href="@{/admin/ticket-checks}"><span class="nav-icon">检</span><span>检票管理</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-qr' ? ' active' : ''}" th:href="@{/admin/ticket-qr}"><span class="nav-icon">码</span><span>二维码查看</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-issue-logs' ? ' active' : ''}" th:href="@{/admin/ticket-logs/issues}"><span class="nav-icon">志</span><span>出票日志</span></a>
+            <a class="nav-item" th:classappend="${activeMenu == 'ticket-operation-logs' ? ' active' : ''}" th:href="@{/admin/ticket-logs/operations}"><span class="nav-icon">审</span><span>操作日志</span></a>
+        </div>
+    </nav>
+</aside>
+</body>
+</html>

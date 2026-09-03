@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminRefundMapper">
+
+    <sql id="RefundWhereSql">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    r.refund_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.phone LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                    OR p.title LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="refundStatus != null and refundStatus != ''">
+                AND r.refund_status = #{refundStatus}
+            </if>
+            <if test="userId != null">
+                AND o.user_id = #{userId}
+            </if>
+            <if test="orderId != null">
+                AND r.order_id = #{orderId}
+            </if>
+            <if test="dateFrom != null and dateFrom != ''">
+                AND r.apply_time &gt;= CONCAT(#{dateFrom}, ' 00:00:00')
+            </if>
+            <if test="dateTo != null and dateTo != ''">
+                AND r.apply_time &lt;= CONCAT(#{dateTo}, ' 23:59:59')
+            </if>
+        </where>
+    </sql>
+
+    <select id="countRefundList" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM refund_record r
+        LEFT JOIN ticket_order o ON o.order_id = r.order_id
+        LEFT JOIN user_account u ON u.user_id = o.user_id
+        LEFT JOIN performance_project p ON p.project_id = o.project_id
+        <include refid="RefundWhereSql"/>
+    </select>
+
+    <select id="selectRefundList" resultType="com.example.maimaibackend.vo.admin.AdminRefundItemVO">
+        SELECT
+            r.refund_id AS refundId,
+            r.refund_no AS refundNo,
+            r.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.user_id AS userId,
+            u.phone AS userPhone,
+            u.nickname AS nickname,
+            o.project_id AS projectId,
+            p.title AS projectTitle,
+            o.session_id AS sessionId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            r.refund_status AS refundStatus,
+            r.refund_type_snapshot AS refundTypeSnapshot,
+            r.fee_rate_snapshot AS feeRateSnapshot,
+            r.refund_amount AS refundAmount,
+            r.fee_amount AS feeAmount,
+            r.reason AS reason,
+            r.fail_reason AS failReason,
+            r.apply_time AS applyTime,
+            r.refund_time AS refundTime,
+            r.update_time AS updateTime
+        FROM refund_record r
+        LEFT JOIN ticket_order o ON o.order_id = r.order_id
+        LEFT JOIN user_account u ON u.user_id = o.user_id
+        LEFT JOIN performance_project p ON p.project_id = o.project_id
+        LEFT JOIN performance_session s ON s.session_id = o.session_id
+        <include refid="RefundWhereSql"/>
+        ORDER BY r.apply_time DESC, r.refund_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectRefundDetail" resultType="com.example.maimaibackend.vo.admin.AdminRefundDetailVO">
+        SELECT
+            r.refund_id AS refundId,
+            r.refund_no AS refundNo,
+            r.order_id AS orderId,
+            o.order_no AS orderNo,
+            o.user_id AS userId,
+            u.phone AS userPhone,
+            u.nickname AS nickname,
+            o.project_id AS projectId,
+            p.title AS projectTitle,
+            p.poster_url AS posterUrl,
+            o.session_id AS sessionId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            v.venue_name AS venueName,
+            o.order_status AS orderStatus,
+            o.pay_amount AS orderPayAmount,
+            r.refund_status AS refundStatus,
+            r.refund_type_snapshot AS refundTypeSnapshot,
+            r.fee_rate_snapshot AS feeRateSnapshot,
+            r.refund_amount AS refundAmount,
+            r.fee_amount AS feeAmount,
+            r.reason AS reason,
+            r.fail_reason AS failReason,
+            r.apply_time AS applyTime,
+            r.refund_time AS refundTime,
+            r.update_time AS updateTime
+        FROM refund_record r
+        LEFT JOIN ticket_order o ON o.order_id = r.order_id
+        LEFT JOIN user_account u ON u.user_id = o.user_id
+        LEFT JOIN performance_project p ON p.project_id = o.project_id
+        LEFT JOIN performance_session s ON s.session_id = o.session_id
+        LEFT JOIN venue v ON v.venue_id = s.venue_id
+        WHERE r.refund_id = #{refundId}
+        LIMIT 1
+    </select>
+
+    <select id="selectRefundOrderTickets" resultType="com.example.maimaibackend.vo.admin.AdminOrderTicketVO">
+        SELECT
+            ticket_id AS ticketId,
+            ticket_no AS ticketNo,
+            order_item_id AS orderItemId,
+            order_audience_id AS orderAudienceId,
+            ticket_status AS ticketStatus,
+            qr_code_value AS qrCodeValue,
+            seat_info AS seatInfo,
+            generate_time AS generateTime,
+            check_time AS checkTime,
+            expire_time AS expireTime,
+            abnormal_reason AS abnormalReason
+        FROM electronic_ticket
+        WHERE order_id = #{orderId}
+        ORDER BY ticket_id ASC
+    </select>
+
+    <update id="updateRefundStatusIfCurrent">
+        UPDATE refund_record
+        SET refund_status = #{targetStatus},
+            refund_time = CASE WHEN #{targetStatus} = 'REFUND_SUCCESS' THEN NOW() ELSE refund_time END,
+            fail_reason = CASE WHEN #{targetStatus} = 'REFUND_FAILED' THEN #{failReason} ELSE NULL END,
+            update_time = NOW()
+        WHERE refund_id = #{refundId}
+          AND refund_status = #{currentStatus}
+    </update>
+
+    <update id="updateOrderStatusIfCurrent">
+        UPDATE ticket_order
+        SET order_status = #{targetStatus},
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND order_status = #{currentStatus}
+    </update>
+
+    <update id="finalizeTicketsAfterRefundApproved">
+        UPDATE electronic_ticket
+        SET ticket_status = 'EXPIRED',
+            qr_code_value = NULL,
+            check_time = NULL,
+            expire_time = IFNULL(expire_time, NOW()),
+            abnormal_reason = '退款成功，电子票已失效',
+            refund_hold_status = NULL,
+            refund_hold_abnormal_reason = NULL,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND (
+              ticket_status IN ('UNUSED', 'GENERATING', 'ERROR')
+              OR (ticket_status = 'EXPIRED' AND refund_hold_status IS NOT NULL)
+          )
+    </update>
+
+    <select id="countRefundHeldTickets" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM electronic_ticket
+        WHERE order_id = #{orderId}
+          AND ticket_status = 'EXPIRED'
+          AND refund_hold_status IN ('UNUSED', 'GENERATING', 'ERROR')
+    </select>
+
+    <update id="restoreTicketsAfterRefundRejected">
+        UPDATE electronic_ticket
+        SET ticket_status = refund_hold_status,
+            expire_time = NULL,
+            abnormal_reason = refund_hold_abnormal_reason,
+            refund_hold_status = NULL,
+            refund_hold_abnormal_reason = NULL,
+            update_time = NOW()
+        WHERE order_id = #{orderId}
+          AND ticket_status = 'EXPIRED'
+          AND refund_hold_status IN ('UNUSED', 'GENERATING', 'ERROR')
+    </update>
+
+</mapper>

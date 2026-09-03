@@ -1,0 +1,526 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.PerformanceMapper">
+
+    <select id="selectCategoryPerformanceList"
+            resultType="com.example.maimaibackend.vo.performance.PerformanceCardVO">
+        SELECT
+            p.project_id AS projectId,
+            s.session_id AS sessionId,
+            p.category_id AS categoryId,
+            c.category_name AS categoryName,
+            p.title AS title,
+            COALESCE(p.poster_url, '') AS posterUrl,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            v.venue_name AS venueName,
+            s.start_time AS startTime,
+            s.min_price AS minPrice,
+            s.max_price AS maxPrice,
+            p.hot_score AS hotScore,
+            p.want_count AS wantCount,
+            s.session_status AS sessionStatus
+        FROM performance_session s
+        JOIN performance_project p ON p.project_id = s.project_id
+        JOIN category c ON c.category_id = p.category_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        WHERE s.city_name = #{cityName}
+          AND s.session_status != 'OFFLINE'
+          AND p.project_status != 'OFFLINE'
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_sku ready_sku
+              WHERE ready_sku.session_id = s.session_id
+                AND ready_sku.sku_status &lt;&gt; 'OFFLINE'
+          )
+          <if test="categoryId != null">
+              AND p.category_id = #{categoryId}
+          </if>
+          <if test="filterTime == 'TODAY'">
+              AND DATE(s.start_time) = CURDATE()
+          </if>
+          <if test="filterTime == 'TOMORROW'">
+              AND DATE(s.start_time) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+          </if>
+          <if test="filterTime == 'THIS_WEEK' or filterTime == 'WEEK'">
+              AND YEARWEEK(s.start_time, 1) = YEARWEEK(NOW(), 1)
+          </if>
+          <if test="filterTime == 'WEEKEND'">
+              AND WEEKDAY(s.start_time) IN (5, 6)
+          </if>
+          <if test="filterTime == 'THIS_MONTH' or filterTime == 'MONTH'">
+              AND DATE_FORMAT(s.start_time, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+          </if>
+          AND NOT EXISTS (
+              SELECT 1
+              FROM performance_session s2
+              JOIN performance_project p2 ON p2.project_id = s2.project_id
+              WHERE s2.project_id = s.project_id
+                AND s2.session_status != 'OFFLINE'
+                AND p2.project_status != 'OFFLINE'
+                AND EXISTS (
+                    SELECT 1
+                    FROM ticket_sku ready_sku2
+                    WHERE ready_sku2.session_id = s2.session_id
+                      AND ready_sku2.sku_status &lt;&gt; 'OFFLINE'
+                )
+                AND s2.city_name = #{cityName}
+                <if test="categoryId != null">
+                    AND p2.category_id = #{categoryId}
+                </if>
+                <if test="filterTime == 'TODAY'">
+                    AND DATE(s2.start_time) = CURDATE()
+                </if>
+                <if test="filterTime == 'TOMORROW'">
+                    AND DATE(s2.start_time) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+                </if>
+                <if test="filterTime == 'THIS_WEEK' or filterTime == 'WEEK'">
+                    AND YEARWEEK(s2.start_time, 1) = YEARWEEK(NOW(), 1)
+                </if>
+                <if test="filterTime == 'WEEKEND'">
+                    AND WEEKDAY(s2.start_time) IN (5, 6)
+                </if>
+                <if test="filterTime == 'THIS_MONTH' or filterTime == 'MONTH'">
+                    AND DATE_FORMAT(s2.start_time, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+                </if>
+                AND (
+                    CASE WHEN s2.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END
+                    <![CDATA[<]]>
+                    CASE WHEN s.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END
+                    OR (
+                        CASE WHEN s2.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END
+                        =
+                        CASE WHEN s.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END
+                        AND (
+                            (s.start_time <![CDATA[>=]]> NOW() AND (
+                                s2.start_time <![CDATA[<]]> s.start_time
+                                OR (s2.start_time = s.start_time AND s2.session_id <![CDATA[<]]> s.session_id)
+                            ))
+                            OR
+                            (s.start_time <![CDATA[<]]> NOW() AND (
+                                s2.start_time <![CDATA[>]]> s.start_time
+                                OR (s2.start_time = s.start_time AND s2.session_id <![CDATA[<]]> s.session_id)
+                            ))
+                        )
+                    )
+                )
+          )
+        <choose>
+            <when test="sortType == 'NEW'">
+                ORDER BY p.publish_time DESC, s.start_time ASC, p.project_id ASC
+            </when>
+            <otherwise>
+                ORDER BY p.hot_score DESC, p.want_count DESC, s.start_time ASC, p.project_id ASC
+            </otherwise>
+        </choose>
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countCategoryPerformanceList" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT p.project_id)
+        FROM performance_session s
+        JOIN performance_project p ON p.project_id = s.project_id
+        WHERE s.city_name = #{cityName}
+          AND s.session_status != 'OFFLINE'
+          AND p.project_status != 'OFFLINE'
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_sku ready_sku
+              WHERE ready_sku.session_id = s.session_id
+                AND ready_sku.sku_status &lt;&gt; 'OFFLINE'
+          )
+          <if test="categoryId != null">
+              AND p.category_id = #{categoryId}
+          </if>
+          <if test="filterTime == 'TODAY'">
+              AND DATE(s.start_time) = CURDATE()
+          </if>
+          <if test="filterTime == 'TOMORROW'">
+              AND DATE(s.start_time) = DATE_ADD(CURDATE(), INTERVAL 1 DAY)
+          </if>
+          <if test="filterTime == 'THIS_WEEK' or filterTime == 'WEEK'">
+              AND YEARWEEK(s.start_time, 1) = YEARWEEK(NOW(), 1)
+          </if>
+          <if test="filterTime == 'WEEKEND'">
+              AND WEEKDAY(s.start_time) IN (5, 6)
+          </if>
+          <if test="filterTime == 'THIS_MONTH' or filterTime == 'MONTH'">
+              AND DATE_FORMAT(s.start_time, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+          </if>
+    </select>
+
+    <select id="selectVenueLookupList" resultType="com.example.maimaibackend.vo.performance.VenueVO">
+        SELECT
+            venue_id AS venueId,
+            venue_name AS venueName,
+            city_name AS cityName,
+            address,
+            longitude,
+            latitude
+        FROM venue
+        ORDER BY venue_id ASC
+    </select>
+
+    <select id="selectSearchPerformanceList"
+            resultType="com.example.maimaibackend.vo.performance.PerformanceCardVO">
+        SELECT
+            p.project_id AS projectId,
+            s.session_id AS sessionId,
+            p.category_id AS categoryId,
+            c.category_name AS categoryName,
+            p.title AS title,
+            COALESCE(p.poster_url, '') AS posterUrl,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            v.venue_name AS venueName,
+            s.start_time AS startTime,
+            s.min_price AS minPrice,
+            s.max_price AS maxPrice,
+            p.hot_score AS hotScore,
+            p.want_count AS wantCount,
+            s.session_status AS sessionStatus
+        FROM performance_session s
+        JOIN performance_project p ON p.project_id = s.project_id
+        JOIN category c ON c.category_id = p.category_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        WHERE p.project_status != 'OFFLINE'
+          AND s.session_status != 'OFFLINE'
+          AND s.city_name = #{cityName}
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_sku ready_sku
+              WHERE ready_sku.session_id = s.session_id
+                AND ready_sku.sku_status &lt;&gt; 'OFFLINE'
+          )
+          AND (
+              p.title LIKE CONCAT('%', #{keyword}, '%')
+              OR c.category_name LIKE CONCAT('%', #{keyword}, '%')
+              OR s.city_name LIKE CONCAT('%', #{keyword}, '%')
+              OR s.station_name LIKE CONCAT('%', #{keyword}, '%')
+              OR v.venue_name LIKE CONCAT('%', #{keyword}, '%')
+          )
+          AND NOT EXISTS (
+              SELECT 1
+              FROM performance_session s2
+              JOIN performance_project p2 ON p2.project_id = s2.project_id
+              JOIN category c2 ON c2.category_id = p2.category_id
+              JOIN venue v2 ON v2.venue_id = s2.venue_id
+              WHERE s2.project_id = s.project_id
+                AND s2.session_status != 'OFFLINE'
+                AND p2.project_status != 'OFFLINE'
+                AND s2.city_name = #{cityName}
+                AND EXISTS (
+                    SELECT 1
+                    FROM ticket_sku ready_sku2
+                    WHERE ready_sku2.session_id = s2.session_id
+                      AND ready_sku2.sku_status &lt;&gt; 'OFFLINE'
+                )
+                AND (
+                    p2.title LIKE CONCAT('%', #{keyword}, '%')
+                    OR c2.category_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR s2.city_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR s2.station_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR v2.venue_name LIKE CONCAT('%', #{keyword}, '%')
+                )
+                AND (
+                    CASE WHEN s2.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END
+                    <![CDATA[<]]>
+                    CASE WHEN s.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END
+                    OR (
+                        CASE WHEN s2.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END
+                        =
+                        CASE WHEN s.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END
+                        AND (
+                            (s.start_time <![CDATA[>=]]> NOW() AND (
+                                s2.start_time <![CDATA[<]]> s.start_time
+                                OR (s2.start_time = s.start_time AND s2.session_id <![CDATA[<]]> s.session_id)
+                            ))
+                            OR
+                            (s.start_time <![CDATA[<]]> NOW() AND (
+                                s2.start_time <![CDATA[>]]> s.start_time
+                                OR (s2.start_time = s.start_time AND s2.session_id <![CDATA[<]]> s.session_id)
+                            ))
+                        )
+                    )
+                )
+          )
+        ORDER BY
+            CASE
+                WHEN p.title LIKE CONCAT('%', #{keyword}, '%') THEN 1
+                WHEN c.category_name LIKE CONCAT('%', #{keyword}, '%') THEN 2
+                WHEN s.city_name LIKE CONCAT('%', #{keyword}, '%') THEN 3
+                WHEN s.station_name LIKE CONCAT('%', #{keyword}, '%') THEN 4
+                WHEN v.venue_name LIKE CONCAT('%', #{keyword}, '%') THEN 5
+                ELSE 9
+            END ASC,
+            CASE WHEN s.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END ASC,
+            s.start_time ASC,
+            p.hot_score DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="countSearchPerformanceList" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT p.project_id)
+        FROM performance_session s
+        JOIN performance_project p ON p.project_id = s.project_id
+        JOIN category c ON c.category_id = p.category_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        WHERE p.project_status != 'OFFLINE'
+          AND s.session_status != 'OFFLINE'
+          AND s.city_name = #{cityName}
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_sku ready_sku
+              WHERE ready_sku.session_id = s.session_id
+                AND ready_sku.sku_status &lt;&gt; 'OFFLINE'
+          )
+          AND (
+              p.title LIKE CONCAT('%', #{keyword}, '%')
+              OR c.category_name LIKE CONCAT('%', #{keyword}, '%')
+              OR s.city_name LIKE CONCAT('%', #{keyword}, '%')
+              OR s.station_name LIKE CONCAT('%', #{keyword}, '%')
+              OR v.venue_name LIKE CONCAT('%', #{keyword}, '%')
+          )
+    </select>
+
+    <select id="selectProjectDetail"
+            resultType="com.example.maimaibackend.vo.performance.ProjectDetailVO">
+        SELECT
+            p.project_id AS projectId,
+            p.title AS title,
+            p.category_id AS categoryId,
+            c.category_name AS categoryName,
+            COALESCE(p.poster_url, '') AS posterUrl,
+            p.detail_content AS detailContent,
+            p.min_price AS minPrice,
+            p.max_price AS maxPrice,
+            p.want_count AS wantCount,
+            p.hot_score AS hotScore,
+            p.project_status AS projectStatus,
+            p.publish_time AS publishTime,
+            CASE
+                WHEN #{userId} IS NULL THEN 0
+                WHEN EXISTS (
+                    SELECT 1 FROM want_record w
+                    WHERE w.user_id = #{userId}
+                      AND w.project_id = p.project_id
+                ) THEN 1
+                ELSE 0
+            END AS wanted
+        FROM performance_project p
+        JOIN category c ON c.category_id = p.category_id
+        WHERE p.project_id = #{projectId}
+          AND p.project_status != 'OFFLINE'
+          AND EXISTS (
+              SELECT 1
+              FROM performance_session ready_session
+              WHERE ready_session.project_id = p.project_id
+                AND ready_session.session_status &lt;&gt; 'OFFLINE'
+                AND EXISTS (
+                    SELECT 1
+                    FROM ticket_sku ready_sku
+                    WHERE ready_sku.session_id = ready_session.session_id
+                      AND ready_sku.sku_status &lt;&gt; 'OFFLINE'
+                )
+          )
+    </select>
+
+    <select id="selectSessionList"
+            resultType="com.example.maimaibackend.vo.performance.SessionItemVO">
+        SELECT
+            s.session_id AS sessionId,
+            s.project_id AS projectId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.venue_id AS venueId,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            v.longitude AS longitude,
+            v.latitude AS latitude,
+            s.start_time AS startTime,
+            s.end_time AS endTime,
+            s.session_status AS sessionStatus,
+            s.min_price AS minPrice,
+            s.max_price AS maxPrice,
+            s.limit_per_order AS limitPerOrder,
+            s.station_detail_content AS stationDetailContent,
+            s.delivery_type AS deliveryType
+        FROM performance_session s
+        JOIN venue v ON v.venue_id = s.venue_id
+        WHERE s.project_id = #{projectId}
+          AND s.session_status != 'OFFLINE'
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_sku ready_sku
+              WHERE ready_sku.session_id = s.session_id
+                AND ready_sku.sku_status &lt;&gt; 'OFFLINE'
+          )
+        ORDER BY s.start_time ASC, s.session_id ASC
+    </select>
+
+    <select id="selectSessionById"
+            resultType="com.example.maimaibackend.vo.performance.SessionItemVO">
+        SELECT
+            s.session_id AS sessionId,
+            s.project_id AS projectId,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            s.venue_id AS venueId,
+            v.venue_name AS venueName,
+            v.address AS venueAddress,
+            v.longitude AS longitude,
+            v.latitude AS latitude,
+            s.start_time AS startTime,
+            s.end_time AS endTime,
+            s.session_status AS sessionStatus,
+            s.min_price AS minPrice,
+            s.max_price AS maxPrice,
+            s.limit_per_order AS limitPerOrder,
+            s.station_detail_content AS stationDetailContent,
+            s.delivery_type AS deliveryType
+        FROM performance_session s
+        JOIN venue v ON v.venue_id = s.venue_id
+        WHERE s.project_id = #{projectId}
+          AND s.session_id = #{sessionId}
+          AND s.session_status != 'OFFLINE'
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_sku ready_sku
+              WHERE ready_sku.session_id = s.session_id
+                AND ready_sku.sku_status &lt;&gt; 'OFFLINE'
+          )
+    </select>
+
+    <select id="selectManualServiceTags"
+            resultType="com.example.maimaibackend.vo.performance.ServiceTagVO">
+        SELECT
+            t.tag_id AS tagId,
+            t.tag_name AS tagName,
+            t.description AS description,
+            r.sort_order AS sortOrder
+        FROM project_service_tag_rel r
+        JOIN service_tag t ON t.tag_id = r.tag_id
+        WHERE r.project_id = #{projectId}
+          AND t.tag_name NOT IN ('条件退', '不可退')
+        ORDER BY r.sort_order ASC, t.tag_id ASC
+    </select>
+
+    <select id="selectRefundServiceTags"
+            resultType="com.example.maimaibackend.vo.performance.ServiceTagVO">
+        SELECT
+            t.tag_id AS tagId,
+            t.tag_name AS tagName,
+            COALESCE(NULLIF(rr.rule_description, ''), t.description) AS description,
+            0 AS sortOrder
+        FROM refund_rule rr
+        JOIN service_tag t ON (
+            (rr.refund_type = 'CONDITIONAL_REFUND' AND t.tag_name = '条件退')
+            OR (rr.refund_type = 'NO_REFUND' AND t.tag_name = '不可退')
+        )
+        WHERE rr.project_id = #{projectId}
+    </select>
+
+    <select id="selectRefundServiceTagDetailItems" resultType="java.lang.String">
+        SELECT CONCAT(
+            CASE
+                WHEN rs.max_before_start_minutes IS NULL THEN CONCAT('演出开始前',
+                    CASE
+                        WHEN MOD(rs.min_before_start_minutes, 1440) = 0 THEN CONCAT(rs.min_before_start_minutes DIV 1440, '天')
+                        WHEN MOD(rs.min_before_start_minutes, 60) = 0 THEN CONCAT(rs.min_before_start_minutes DIV 60, '小时')
+                        ELSE CONCAT(rs.min_before_start_minutes, '分钟')
+                    END, '及以上')
+                WHEN rs.min_before_start_minutes = 0 THEN CONCAT('演出开始前',
+                    CASE
+                        WHEN MOD(rs.max_before_start_minutes, 1440) = 0 THEN CONCAT(rs.max_before_start_minutes DIV 1440, '天')
+                        WHEN MOD(rs.max_before_start_minutes, 60) = 0 THEN CONCAT(rs.max_before_start_minutes DIV 60, '小时')
+                        ELSE CONCAT(rs.max_before_start_minutes, '分钟')
+                    END, '内')
+                ELSE CONCAT('演出开始前',
+                    CASE
+                        WHEN MOD(rs.min_before_start_minutes, 1440) = 0 THEN CONCAT(rs.min_before_start_minutes DIV 1440, '天')
+                        WHEN MOD(rs.min_before_start_minutes, 60) = 0 THEN CONCAT(rs.min_before_start_minutes DIV 60, '小时')
+                        ELSE CONCAT(rs.min_before_start_minutes, '分钟')
+                    END, '至',
+                    CASE
+                        WHEN MOD(rs.max_before_start_minutes, 1440) = 0 THEN CONCAT(rs.max_before_start_minutes DIV 1440, '天')
+                        WHEN MOD(rs.max_before_start_minutes, 60) = 0 THEN CONCAT(rs.max_before_start_minutes DIV 60, '小时')
+                        ELSE CONCAT(rs.max_before_start_minutes, '分钟')
+                    END)
+            END,
+            '：',
+            CASE rs.stage_result
+                WHEN 'FREE' THEN '免费退票'
+                WHEN 'FEE_PERCENT' THEN CONCAT('收取', CAST(ROUND(IFNULL(rs.fee_rate, 0) * 100, 2) AS CHAR), '%手续费')
+                WHEN 'FEE_FIXED' THEN CONCAT('收取￥', CAST(IFNULL(rs.fixed_fee_amount, 0) AS CHAR), '手续费')
+                WHEN 'NOT_ALLOWED' THEN '不可退票'
+                ELSE '以项目退款规则为准'
+            END
+        )
+        FROM refund_rule rr
+        JOIN refund_rule_stage rs ON rs.refund_rule_id = rr.refund_rule_id
+        WHERE rr.project_id = #{projectId}
+          AND rr.refund_type = 'CONDITIONAL_REFUND'
+        ORDER BY rs.sort_order ASC, rs.stage_id ASC
+    </select>
+
+    <select id="countProjectNotice" resultType="java.lang.Integer">
+        SELECT COUNT(1)
+        FROM project_notice_rel
+        WHERE project_id = #{projectId}
+    </select>
+
+    <select id="selectProjectNotices"
+            resultType="com.example.maimaibackend.vo.performance.NoticeItemVO">
+        SELECT
+            n.notice_id AS noticeId,
+            COALESCE(NULLIF(r.title_override, ''), n.title) AS title,
+            COALESCE(NULLIF(r.description_override, ''), n.description) AS description,
+            COALESCE(n.icon_url, '') AS iconUrl,
+            n.notice_type AS noticeType,
+            r.sort_order AS sortOrder
+        FROM project_notice_rel r
+        JOIN notice_item n ON n.notice_id = r.notice_id
+        WHERE r.project_id = #{projectId}
+        ORDER BY r.sort_order ASC, n.notice_id ASC
+    </select>
+
+
+
+    <select id="selectTicketSkus"
+            resultType="com.example.maimaibackend.vo.performance.TicketSkuVO">
+        SELECT
+            sku.sku_id AS skuId,
+            sku.project_id AS projectId,
+            sku.session_id AS sessionId,
+            sku.sku_name AS skuName,
+            sku.sku_desc AS skuDesc,
+            sku.price AS price,
+            CASE
+                WHEN sku.inventory_authority &lt;&gt; 'LOCAL_COMPAT'
+                 AND skum.mapping_id IS NOT NULL
+                 AND skum.available_stock_snapshot IS NULL THEN NULL
+                ELSE sku.stock_available
+            END AS stockAvailable,
+            sku.stock_locked AS stockLocked,
+            sku.sold_count AS soldCount,
+            sku.sku_status AS skuStatus,
+            sku.sort_order AS sortOrder,
+            CASE
+                WHEN sku.inventory_authority &lt;&gt; 'LOCAL_COMPAT'
+                 AND skum.mapping_id IS NOT NULL
+                 AND skum.available_stock_snapshot IS NULL THEN s.limit_per_order
+                ELSE LEAST(s.limit_per_order, sku.stock_available)
+            END AS maxSelectableQuantity
+        FROM ticket_sku sku
+        JOIN performance_session s ON s.session_id = sku.session_id
+        LEFT JOIN ticket_source_sku_mapping skum
+               ON skum.sku_id = sku.sku_id AND skum.mapping_status = 'BOUND'
+        WHERE sku.session_id = #{sessionId}
+          AND sku.sku_status &lt;&gt; 'OFFLINE'
+        ORDER BY sku.sort_order ASC, sku.sku_id ASC
+    </select>
+
+</mapper>

@@ -1,0 +1,22 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('MOCK_DAMAI 测试控制')}"></head>
+<body>
+<div class="admin-app">
+<aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+<div class="admin-main">
+<header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+
+<main class="page-content ticket-source-page" data-ts-page="mock">
+<section class="page-heading"><div><p class="breadcrumb">第三方票源 / MOCK_DAMAI</p><h2>MOCK_DAMAI 测试控制</h2><p>仅用于测试环境制造超时、错误、价格变化等场景。测试结束后应 Reset，真实 Provider 不使用此页。</p></div><button class="button button-danger" id="tsMockReset" type="button">Reset 全部行为</button></section>
+<div class="inline-alert warning ts-warning-box"><strong>测试专用：</strong>开启 forced error / delay 会影响所有使用 MOCK_DAMAI 的人工流程。离开前请点击 Reset。</div>
+<section class="panel table-panel ts-section-gap"><div class="panel-header"><div><h3>模拟行为</h3><p>对 V11_CREATE_ORDER / GET_TICKETS / GET_SHIPMENT 等操作设置延迟和错误。</p></div><button class="button button-secondary" id="tsMockRefresh" type="button">刷新</button></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Operation</th><th>启用</th><th>延迟 ms</th><th>错误码</th><th>错误文案</th><th>可重试</th><th>操作</th></tr></thead><tbody id="tsMockBehaviorsBody"></tbody></table></div></section>
+<section class="panel ts-section-gap"><div class="panel-header"><div><h3>模拟票档价格</h3><p>修改 Provider 实时价格，用于验证 priceStatus=CHANGED。不会直接修改用户订单。</p></div></div><div class="panel-body"><form id="tsMockPriceForm" class="filter-grid ts-filter-five"><label class="field"><span>providerSkuId</span><input id="tsMockSkuId" placeholder="MOCK-SKU-..."></label><label class="field"><span>facePrice（元）</span><input id="tsMockFacePrice" type="number" min="0"></label><label class="field"><span>salePrice（元）</span><input id="tsMockSalePrice" type="number" min="0"></label><label class="field"><span>settlementPrice（元）</span><input id="tsMockSettlementPrice" type="number" min="0"></label><div class="filter-actions"><button class="button button-primary" type="submit">更新实时价格</button></div></form></div></section>
+<div class="panel ts-section-gap"><pre class="ts-json" id="tsMockResult">暂无操作结果</pre></div>
+</main>
+</div></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/ticket-source-console.js(v='b12r6-width')}"></script>
+</body></html>

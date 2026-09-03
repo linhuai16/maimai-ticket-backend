@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('场馆管理')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="venueManagementPage">
+            <section class="page-heading">
+                <div>
+                    <p class="breadcrumb">演出管理 / 场馆管理</p>
+                    <h2>场馆资源管理</h2>
+                    <p>维护场馆名称、所属城市、地址与地图坐标。已关联场次的场馆不能修改城市或删除。</p>
+                </div>
+                <button class="button button-primary" id="createVenueButton" type="button">＋ 新建场馆</button>
+            </section>
+
+            <section class="panel filter-panel">
+                <form id="venueFilterForm" class="filter-grid">
+                    <label class="field compact">
+                        <span>关键词</span>
+                        <input id="venueKeyword" type="search" maxlength="100" placeholder="场馆名称或地址">
+                    </label>
+                    <label class="field compact">
+                        <span>所属城市</span>
+                        <input id="venueCityFilter" type="search" maxlength="50" placeholder="例如：北京">
+                    </label>
+                    <div class="filter-actions">
+                        <button class="button button-primary" type="submit">查询</button>
+                        <button class="button button-secondary" id="resetVenueFilterButton" type="button">重置</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel table-panel">
+                <div class="panel-header table-header">
+                    <div><h3>场馆数据</h3><p id="venueTotalText">正在读取...</p></div>
+                    <button class="button button-ghost button-small" id="refreshVenueButton" type="button">刷新</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table venue-table">
+                        <thead>
+                        <tr>
+                            <th>场馆</th>
+                            <th>所属城市</th>
+                            <th>详细地址</th>
+                            <th>经纬度</th>
+                            <th>关联场次</th>
+                            <th>更新时间</th>
+                            <th class="align-right">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="venueTableBody">
+                        <tr><td colspan="7"><div class="table-empty">正在加载场馆数据...</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <label class="page-size-field">每页
+                        <select id="venuePageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select> 条
+                    </label>
+                    <div id="venuePagination" class="pagination"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="venueModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="venueModalTitle">
+        <form id="venueForm" novalidate>
+            <div class="modal-header">
+                <div><p class="modal-eyebrow">VENUE RESOURCE</p><h3 id="venueModalTitle">新建场馆</h3></div>
+                <button class="icon-button" id="venueModalClose" type="button" aria-label="关闭">×</button>
+            </div>
+            <div class="modal-body">
+                <div id="venueLockedTip" class="inline-alert warning" hidden>
+                    该场馆已关联场次，所属城市不能修改；名称、地址和坐标仍可更新。
+                </div>
+                <div class="field-grid field-grid-two modal-form-grid">
+                    <label class="field">
+                        <span>场馆名称 *</span>
+                        <input id="venueName" type="text" maxlength="100" required placeholder="例如：国家体育场（鸟巢）">
+                    </label>
+                    <label class="field">
+                        <span>所属城市 *</span>
+                        <input id="venueCityName" type="text" maxlength="50" required placeholder="例如：北京">
+                    </label>
+                    <label class="field field-wide">
+                        <span>详细地址 *</span>
+                        <input id="venueAddress" type="text" maxlength="255" required placeholder="填写省市区和详细门牌地址">
+                    </label>
+                    <label class="field">
+                        <span>经度</span>
+                        <input id="venueLongitude" type="number" min="-180" max="180" step="0.0000001" placeholder="-180 ～ 180">
+                    </label>
+                    <label class="field">
+                        <span>纬度</span>
+                        <input id="venueLatitude" type="number" min="-90" max="90" step="0.0000001" placeholder="-90 ～ 90">
+                    </label>
+                </div>
+                <div class="coordinate-help">
+                    坐标可为空；填写时经度范围为 -180～180，纬度范围为 -90～90。
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary" id="venueModalCancel" type="button">取消</button>
+                <button class="button button-primary" id="saveVenueButton" type="submit">保存场馆</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="venueDetailModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="venueDetailTitle">
+        <div class="modal-header">
+            <div><p class="modal-eyebrow">VENUE DETAIL</p><h3 id="venueDetailTitle">场馆详情</h3></div>
+            <button class="icon-button" id="venueDetailClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body" id="venueDetailContent"><div class="table-empty">正在读取...</div></div>
+        <div class="modal-footer"><button class="button button-secondary" id="venueDetailCloseButton" type="button">关闭</button></div>
+    </div>
+</div>
+
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/venue-management.js}"></script>
+</body>
+</html>

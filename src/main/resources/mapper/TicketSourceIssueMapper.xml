@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.TicketSourceIssueMapper">
+    <sql id="TaskColumns">
+        t.task_id AS taskId, t.order_id AS orderId, o.order_no AS orderNo,
+        o.order_status AS orderStatus, o.payment_status AS paymentStatus,
+        t.bridge_id AS bridgeId, t.provider_id AS providerId, p.provider_code AS providerCode,
+        t.provider_order_id AS providerOrderId, t.task_status AS taskStatus,
+        t.provider_delivery_status AS providerDeliveryStatus,
+        t.expected_ticket_count AS expectedTicketCount, t.issued_count AS issuedCount,
+        t.failed_count AS failedCount, t.retry_count AS retryCount,
+        t.max_retry_count AS maxRetryCount, t.issue_idempotency_key AS issueIdempotencyKey,
+        t.request_sent AS requestSent, t.manual_hold AS manualHold,
+        t.next_attempt_time AS nextAttemptTime, t.last_attempt_time AS lastAttemptTime,
+        t.complete_time AS completeTime, t.provider_delivery_version AS providerDeliveryVersion,
+        t.last_operation AS lastOperation, t.last_error_code AS lastErrorCode,
+        t.last_error_message AS lastErrorMessage, t.last_error_retryable AS lastErrorRetryable,
+        t.create_time AS createTime, t.update_time AS updateTime
+    </sql>
+
+    <insert id="insertIssueTask">
+        INSERT INTO ticket_source_issue_task
+        (order_id, bridge_id, provider_id, provider_order_id, task_status,
+         provider_delivery_status, expected_ticket_count, issued_count, failed_count,
+         retry_count, max_retry_count, issue_idempotency_key, request_sent, manual_hold,
+         next_attempt_time, create_time, update_time)
+        VALUES
+        (#{orderId}, #{bridgeId}, #{providerId}, #{providerOrderId}, 'PENDING',
+         'UNKNOWN', #{expectedCount}, 0, 0, 0, #{maxRetryCount}, #{idempotencyKey}, 0, 0,
+         #{nextAttemptTime}, #{now}, #{now})
+        ON DUPLICATE KEY UPDATE order_id=VALUES(order_id)
+    </insert>
+
+    <select id="selectTaskByOrderId" resultType="com.example.maimaibackend.ticketsource.issue.model.TicketSourceIssueTask">
+        SELECT <include refid="TaskColumns"/>
+        FROM ticket_source_issue_task t
+        JOIN ticket_order o ON o.order_id=t.order_id
+        JOIN ticket_source_provider p ON p.provider_id=t.provider_id
+        WHERE t.order_id=#{orderId}
+        LIMIT 1
+    </select>
+
+    <select id="selectTaskForUpdate" resultType="com.example.maimaibackend.ticketsource.issue.model.TicketSourceIssueTask">
+        SELECT <include refid="TaskColumns"/>
+        FROM ticket_source_issue_task t
+        JOIN ticket_order o ON o.order_id=t.order_id
+        JOIN ticket_source_provider p ON p.provider_id=t.provider_id
+        WHERE t.order_id=#{orderId}
+        LIMIT 1 FOR UPDATE
+    </select>
+
+    <select id="selectDueOrderIds" resultType="long">
+        SELECT t.order_id FROM ticket_source_issue_task t
+        JOIN ticket_source_order_bridge b ON b.bridge_id=t.bridge_id
+        WHERE t.manual_hold=0
+          AND COALESCE(b.order_model,'') &lt;&gt; 'SINGLE_SKU'
+          AND (
+            (t.task_status IN ('PENDING','WAIT_PROVIDER','RETRY_WAIT','PARTIAL','FAILED')
+             AND (t.next_attempt_time IS NULL OR t.next_attempt_time &lt;= #{now}))
+            OR
+            (t.task_status='PROCESSING' AND t.last_attempt_time IS NOT NULL
+             AND t.last_attempt_time &lt;= #{processingCutoff})
+          )
+        ORDER BY COALESCE(t.next_attempt_time, t.last_attempt_time, t.create_time), t.task_id
+        LIMIT #{limit}
+    </select>
+
+    <update id="markProcessing">
+        UPDATE ticket_source_issue_task
+        SET task_status='PROCESSING', last_attempt_time=#{now}, last_operation='PROCESS',
+            version=version+1, update_time=#{now}
+        WHERE order_id=#{orderId}
+          AND (
+            task_status IN ('PENDING','WAIT_PROVIDER','RETRY_WAIT','PARTIAL','FAILED')
+            OR (task_status='PROCESSING' AND last_attempt_time IS NOT NULL
+                AND last_attempt_time &lt;= #{processingCutoff})
+          )
+    </update>
+
+    <select id="selectLocalTickets" resultType="com.example.maimaibackend.ticketsource.issue.model.TicketSourceLocalTicket">
+        SELECT e.ticket_id AS ticketId,
+               (SELECT COUNT(*) FROM electronic_ticket e2
+                WHERE e2.order_id=e.order_id AND e2.ticket_id &lt;= e.ticket_id) AS ticketIndex,
+               e.ticket_status AS ticketStatus
+        FROM electronic_ticket e
+        WHERE e.order_id=#{orderId}
+        ORDER BY e.ticket_id ASC
+    </select>
+
+    <update id="applyIssuedCredential">
+        UPDATE electronic_ticket
+        SET source_provider_id=#{providerId}, provider_order_id=#{providerOrderId},
+            provider_ticket_id=#{providerTicketId}, ticket_status='UNUSED',
+            credential_type=#{credentialType},
+            credential_payload=CASE WHEN #{credentialType}='DYNAMIC_QR' THEN NULL ELSE #{credentialPayload} END,
+            credential_version=#{credentialVersion},
+            qr_code_value=CASE WHEN #{credentialType} IN ('STATIC_QR','QR_CODE') THEN #{credentialPayload} ELSE NULL END,
+            seat_info=#{seatInfo}, seat_zone=#{seatZone}, seat_row=#{seatRow},
+            seat_number=#{seatNumber}, entrance_info=#{entranceInfo},
+            generate_time=COALESCE(generate_time, #{issueTime}), provider_issue_time=#{issueTime},
+            last_source_sync_time=#{syncTime}, expire_time=COALESCE(expire_time, #{expireTime}),
+            abnormal_reason=NULL, update_time=#{syncTime}
+        WHERE ticket_id=#{ticketId}
+          AND ticket_status IN ('GENERATING','ERROR','UNUSED')
+    </update>
+
+    <update id="applyFailedCredential">
+        UPDATE electronic_ticket
+        SET source_provider_id=#{providerId}, provider_order_id=#{providerOrderId},
+            provider_ticket_id=#{providerTicketId}, ticket_status='ERROR',
+            credential_type=NULL, credential_payload=NULL, credential_version=NULL,
+            qr_code_value=NULL, generate_time=NULL, provider_issue_time=NULL,
+            last_source_sync_time=#{syncTime}, abnormal_reason=#{reason}, update_time=#{syncTime}
+        WHERE ticket_id=#{ticketId}
+          AND ticket_status IN ('GENERATING','ERROR')
+    </update>
+
+    <select id="countTicketsByStatus" resultType="int">
+        SELECT COUNT(*) FROM electronic_ticket WHERE order_id=#{orderId} AND ticket_status=#{ticketStatus}
+    </select>
+
+    <update id="updateOrderIssuedTime">
+        UPDATE ticket_order SET ticket_issued_time=COALESCE(ticket_issued_time, #{issueTime}), update_time=#{issueTime}
+        WHERE order_id=#{orderId} AND order_status='WAIT_USE'
+    </update>
+
+    <update id="updateTaskResult">
+        UPDATE ticket_source_issue_task
+        SET task_status=#{taskStatus}, provider_delivery_status=#{providerDeliveryStatus},
+            issued_count=#{issuedCount}, failed_count=#{failedCount}, retry_count=#{retryCount},
+            next_attempt_time=#{nextAttemptTime}, complete_time=#{completeTime},
+            provider_delivery_version=#{providerDeliveryVersion}, last_operation=#{lastOperation},
+            last_error_code=#{lastErrorCode}, last_error_message=#{lastErrorMessage},
+            last_error_retryable=#{lastErrorRetryable}, request_sent=#{requestSent},
+            manual_hold=#{manualHold}, version=version+1, update_time=#{now}
+        WHERE order_id=#{orderId}
+    </update>
+
+    <update id="markGeneratingTicketsError">
+        UPDATE electronic_ticket
+        SET ticket_status='ERROR', abnormal_reason=#{reason}, last_source_sync_time=#{now}, update_time=#{now}
+        WHERE order_id=#{orderId} AND ticket_status='GENERATING'
+    </update>
+
+    <update id="resetFailedTickets">
+        UPDATE electronic_ticket
+        SET ticket_status='GENERATING', abnormal_reason=NULL, qr_code_value=NULL,
+            credential_type=NULL, credential_payload=NULL, credential_version=NULL,
+            provider_ticket_id=NULL, provider_issue_time=NULL, last_source_sync_time=#{now}, update_time=#{now}
+        WHERE order_id=#{orderId} AND ticket_status='ERROR'
+    </update>
+
+    <update id="resetTaskForRetry">
+        UPDATE ticket_source_issue_task
+        SET task_status='PENDING', provider_delivery_status='UNKNOWN', retry_count=0,
+            issued_count=(SELECT COUNT(*) FROM electronic_ticket WHERE order_id=#{orderId} AND ticket_status='UNUSED'),
+            failed_count=0, next_attempt_time=#{nextAttemptTime}, complete_time=NULL,
+            last_error_code=NULL, last_error_message=NULL, last_error_retryable=0,
+            manual_hold=0, version=version+1, update_time=#{now}
+        WHERE order_id=#{orderId}
+          AND task_status IN ('FAILED','PARTIAL','MANUAL_REVIEW','RETRY_WAIT')
+    </update>
+</mapper>

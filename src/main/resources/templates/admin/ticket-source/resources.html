@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('资源同步与映射')}"></head>
+<body>
+<div class="admin-app">
+<aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+<div class="admin-main">
+<header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+
+<main class="page-content ticket-source-page" data-ts-page="resources">
+<section class="page-heading"><div><p class="breadcrumb">第三方票源 / 资源</p><h2>资源同步与映射</h2><p>浏览第三方原始项目，执行 Preview、Sync，并核对项目/场次/SKU 映射。Sync 才会修改本地主数据。</p></div></section>
+<section class="panel filter-panel"><form id="tsResourceRemoteForm" class="filter-grid ts-filter-five">
+<label class="field compact"><span>Provider</span><select id="tsResourceProvider"></select></label>
+<label class="field compact"><span>第三方项目关键词</span><input id="tsResourceKeyword" placeholder="标题 / providerProjectId"></label>
+<label class="field compact"><span>城市</span><input id="tsResourceCity" placeholder="可选"></label>
+<label class="field compact"><span>页码</span><input id="tsResourcePageNo" type="number" min="1" value="1"></label>
+<div class="filter-actions"><button class="button button-primary" type="submit">查询第三方项目</button></div>
+</form></section>
+<section class="panel table-panel"><div class="panel-header"><div><h3>第三方原始项目</h3><p id="tsRemoteProjectsText">尚未查询</p></div></div><div class="table-wrap"><table class="data-table ts-remote-project-table"><thead><tr><th>第三方项目</th><th>城市 / 状态</th><th>价格</th><th>更新时间</th><th class="align-right">操作</th></tr></thead><tbody id="tsRemoteProjectsBody"><tr><td colspan="5"><div class="table-empty">请选择 Provider 查询</div></td></tr></tbody></table></div></section>
+<section class="panel filter-panel ts-section-gap"><form id="tsMappingFilterForm" class="filter-grid"><label class="field compact"><span>Provider</span><select id="tsMappingProvider"></select></label><label class="field compact"><span>关键词</span><input id="tsMappingKeyword" placeholder="本地/第三方项目名或ID"></label><label class="field compact"><span>条数</span><select id="tsMappingLimit"><option>50</option><option selected>100</option><option>200</option></select></label><div class="filter-actions"><button class="button button-secondary" type="submit">刷新映射</button></div></form></section>
+<section class="panel table-panel"><div class="panel-header"><div><h3>本地映射</h3><p>映射状态与同步结果。</p></div></div><div class="table-wrap"><table class="data-table"><thead><tr><th>Provider</th><th>第三方项目</th><th>本地项目</th><th>映射</th><th>资源数</th><th>最近同步</th><th>异常</th></tr></thead><tbody id="tsMappingsBody"></tbody></table></div></section>
+<section class="panel table-panel ts-section-gap" id="tsResourceDetailPanel" hidden><div class="panel-header"><div><h3>项目 / 场次 / SKU 映射明细</h3><p>用于人工核对 Provider ID、本地 ID、库存快照、Provider 价格、结算价与麦麦平台售价。</p></div></div><div class="table-wrap"><table class="data-table ts-data-table"><thead><tr><th>本地 / Provider SKU</th><th>场次映射</th><th>映射 / 状态</th><th>库存快照</th><th>Provider 价格</th><th>麦麦平台售价</th><th>票型</th><th>最近同步</th></tr></thead><tbody id="tsResourceDetailBody"></tbody></table></div></section>
+<div class="panel ts-section-gap"><div class="panel-header"><div><h3>原始诊断响应</h3><p>Preview / Sync / Mapping + 票档映射明细 JSON 仅供排障；日常排障优先查看上方映射明细。</p></div></div><pre class="ts-json" id="tsResourceResult">暂无操作结果</pre></div>
+</main>
+</div></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/ticket-source-console.js(v='b12r6-width')}"></script>
+</body></html>

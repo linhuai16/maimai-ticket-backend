@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body>
+<div id="mediaSelectorModal" class="modal-backdrop" hidden th:fragment="selector">
+    <div class="modal-card modal-xlarge" role="dialog" aria-modal="true" aria-labelledby="mediaSelectorTitle">
+        <div class="modal-header">
+            <div>
+                <p class="modal-eyebrow">MEDIA SELECTOR</p>
+                <h3 id="mediaSelectorTitle">选择媒体</h3>
+            </div>
+            <button class="icon-button" id="mediaSelectorCloseButton" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body">
+            <section class="media-selector-toolbar">
+                <form id="mediaSelectorSearchForm" class="media-selector-search">
+                    <label class="field compact">
+                        <span>文件名关键词</span>
+                        <input id="mediaSelectorKeyword" type="search" maxlength="100" placeholder="输入文件名关键词">
+                    </label>
+                    <div class="selector-actions">
+                        <button class="button button-primary" type="submit">搜索</button>
+                        <button class="button button-secondary" id="mediaSelectorResetButton" type="button">重置</button>
+                    </div>
+                </form>
+                <div class="media-selector-upload">
+                    <input id="mediaSelectorUploadInput" type="file" accept="image/jpeg,image/png,image/gif,image/webp" hidden>
+                    <button class="button button-primary" id="mediaSelectorUploadButton" type="button">上传本地媒体</button>
+                    <small id="mediaSelectorUploadHelp">请选择图片或视频。</small>
+                </div>
+            </section>
+
+            <div id="mediaSelectorCurrentBusiness" class="inline-note">当前业务目录：-</div>
+            <div id="mediaSelectorGrid" class="media-selector-grid">
+                <div class="table-empty">正在加载媒体...</div>
+            </div>
+            <div class="table-footer">
+                <span class="table-meta" id="mediaSelectorTotalText">共 0 个媒体</span>
+                <div class="media-selector-pager">
+                    <button class="button button-secondary button-small" id="mediaSelectorPrevButton" type="button">上一页</button>
+                    <span id="mediaSelectorPageText" class="table-meta">第 1 / 1 页</span>
+                    <button class="button button-secondary button-small" id="mediaSelectorNextButton" type="button">下一页</button>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer modal-footer-split">
+            <div id="mediaSelectorSelectedText" class="selector-selected-summary">尚未选择媒体</div>
+            <div class="modal-footer-links">
+                <button class="button button-secondary" id="mediaSelectorCancelButton" type="button">取消</button>
+                <button class="button button-primary" id="mediaSelectorConfirmButton" type="button" disabled>确认选择</button>
+            </div>
+        </div>
+    </div>
+</div>
+</body>
+</html>

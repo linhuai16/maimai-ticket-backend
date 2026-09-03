@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('用户管理')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="userManagementPage">
+            <section class="page-heading">
+                <div>
+                    <p class="breadcrumb">交易管理 / 用户管理</p>
+                    <h2>用户管理</h2>
+                    <p>查看用户交易概况、观演人、收货地址和想看记录，并进行账号启用或禁用。</p>
+                </div>
+                <button class="button button-ghost" id="refreshUserButton" type="button">刷新数据</button>
+            </section>
+
+            <section class="panel filter-panel">
+                <form id="userFilterForm" class="filter-grid user-filter-grid">
+                    <label class="field compact filter-span-two">
+                        <span>关键词</span>
+                        <input id="userKeyword" type="search" maxlength="100" placeholder="手机号或昵称">
+                    </label>
+                    <label class="field compact">
+                        <span>账号状态</span>
+                        <select id="userStatusFilter">
+                            <option value="">全部状态</option>
+                            <option value="NORMAL">正常</option>
+                            <option value="DISABLED">已禁用</option>
+                        </select>
+                    </label>
+                    <div class="filter-actions transaction-filter-actions">
+                        <button class="button button-primary" type="submit">查询</button>
+                        <button class="button button-secondary" id="resetUserFilterButton" type="button">重置</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel table-panel">
+                <div class="panel-header table-header">
+                    <div><h3>用户数据</h3><p id="userTotalText">正在读取...</p></div>
+                    <div class="table-summary-chips" id="userSummaryChips"></div>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table user-table">
+                        <thead>
+                        <tr>
+                            <th>用户</th>
+                            <th>交易概况</th>
+                            <th>消费金额</th>
+                            <th>资料概况</th>
+                            <th>想看</th>
+                            <th>状态</th>
+                            <th>注册时间</th>
+                            <th class="align-right">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="userTableBody">
+                        <tr><td colspan="8"><div class="table-empty">正在加载用户数据...</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <label class="page-size-field">每页
+                        <select id="userPageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select> 条
+                    </label>
+                    <div id="userPagination" class="pagination"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="userDetailModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-xlarge" role="dialog" aria-modal="true" aria-labelledby="userDetailTitle">
+        <div class="modal-header">
+            <div><p class="modal-eyebrow">USER PROFILE</p><h3 id="userDetailTitle">用户详情</h3></div>
+            <button class="icon-button" id="userDetailClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body" id="userDetailContent">
+            <div class="table-empty">正在读取用户详情...</div>
+        </div>
+        <div class="modal-footer modal-footer-split">
+            <div class="modal-footer-links">
+                <a class="button button-secondary" id="userDetailOrderLink" href="/admin/orders">查看该用户订单</a>
+            </div>
+            <button class="button button-ghost" id="userDetailCloseButton" type="button">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/user-management.js}"></script>
+</body>
+</html>

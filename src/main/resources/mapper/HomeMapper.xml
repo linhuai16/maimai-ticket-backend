@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.HomeMapper">
+
+    <select id="selectActiveBanners"
+            resultType="com.example.maimaibackend.vo.home.BannerItemVO">
+        SELECT
+            banner_id AS bannerId,
+            banner_title AS title,
+            COALESCE(image_url, '') AS imageUrl,
+            target_project_id AS targetProjectId,
+            target_session_id AS targetSessionId,
+            sort_order AS sortOrder
+        FROM banner_item b
+        JOIN performance_project p ON p.project_id = b.target_project_id
+        LEFT JOIN performance_session s ON s.session_id = b.target_session_id
+            AND s.project_id = b.target_project_id
+        WHERE b.enable_status = 'ENABLED'
+          AND b.start_time <![CDATA[<=]]> NOW()
+          AND b.end_time <![CDATA[>=]]> NOW()
+          AND p.project_status &lt;&gt; 'OFFLINE'
+          AND (
+              b.target_session_id IS NULL
+              OR s.session_status &lt;&gt; 'OFFLINE'
+          )
+        ORDER BY b.sort_order ASC, b.banner_id ASC
+    </select>
+
+    <select id="selectHomeCategories"
+            resultType="com.example.maimaibackend.vo.home.CategoryItemVO">
+        SELECT
+            category_id AS categoryId,
+            category_code AS categoryCode,
+            category_name AS categoryName,
+            COALESCE(icon_url, '') AS iconUrl,
+            sort_order AS sortOrder
+        FROM category
+        ORDER BY sort_order ASC, category_id ASC
+    </select>
+
+    <select id="selectHomeRecommendList"
+            resultType="com.example.maimaibackend.vo.home.HomeRecommendItemVO">
+        SELECT
+            p.project_id AS projectId,
+            s.session_id AS sessionId,
+            p.category_id AS categoryId,
+            c.category_name AS categoryName,
+            p.title AS title,
+            COALESCE(p.poster_url, '') AS posterUrl,
+            s.city_name AS cityName,
+            v.venue_name AS venueName,
+            s.start_time AS startTime,
+            s.min_price AS minPrice,
+            s.max_price AS maxPrice,
+            p.hot_score AS hotScore,
+            p.want_count AS wantCount
+        FROM performance_session s
+        JOIN performance_project p ON p.project_id = s.project_id
+        JOIN category c ON c.category_id = p.category_id
+        JOIN venue v ON v.venue_id = s.venue_id
+        WHERE s.session_status IN ('ON_SALE', 'PRESALE')
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_sku ready_sku
+              WHERE ready_sku.session_id = s.session_id
+                AND ready_sku.sku_status IN ('ON_SALE', 'PRESALE')
+                AND ready_sku.stock_available &gt; 0
+          )
+          AND s.start_time <![CDATA[>=]]> NOW()
+          AND s.start_time <![CDATA[<]]> DATE_ADD(NOW(), INTERVAL 1 MONTH)
+          AND p.project_status IN ('ON_SALE', 'COMING_SOON')
+          AND p.recommend_flag = 1
+          AND NOT EXISTS (
+              SELECT 1
+              FROM performance_session s2
+            WHERE s2.project_id = s.project_id
+                AND s2.session_status IN ('ON_SALE', 'PRESALE')
+                AND EXISTS (
+                    SELECT 1
+                    FROM ticket_sku ready_sku2
+                    WHERE ready_sku2.session_id = s2.session_id
+                      AND ready_sku2.sku_status IN ('ON_SALE', 'PRESALE')
+                      AND ready_sku2.stock_available &gt; 0
+                )
+                AND s2.start_time <![CDATA[>=]]> NOW()
+                AND s2.start_time <![CDATA[<]]> DATE_ADD(NOW(), INTERVAL 1 MONTH)
+                AND (
+                    s2.start_time <![CDATA[<]]> s.start_time
+                    OR (s2.start_time = s.start_time AND s2.session_id <![CDATA[<]]> s.session_id)
+                )
+          )
+        ORDER BY p.hot_score DESC, p.want_count DESC, s.start_time ASC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+</mapper>

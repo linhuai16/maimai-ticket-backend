@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main id="bannerFormPage" class="page-content" th:attr="data-mode=${formMode},data-banner-id=${bannerId}">
+            <section class="page-heading">
+                <div><p class="breadcrumb">运营配置 / Banner / <span th:text="${formMode == 'edit' ? '编辑' : '新增'}">新增</span></p><h2 th:text="${pageTitle}">新增 Banner</h2><p>Banner 必须关联演出项目；可进一步绑定具体场次作为前台跳转目标。</p></div>
+                <a class="button button-secondary" th:href="@{/admin/operation/banners}">返回列表</a>
+            </section>
+            <form id="bannerForm" class="form-page-grid">
+                <section class="panel form-panel form-panel-main">
+                    <div class="panel-header"><div><h3>基础配置</h3><p>填写轮播内容和展示区间。</p></div></div>
+                    <div class="form-section field-grid field-grid-two">
+                        <label class="field field-wide"><span>Banner 标题 *</span><input id="bannerTitle" maxlength="100" required placeholder="例如：周杰伦巡演首页 Banner"></label>
+                        <div class="field field-wide"><span>Banner 图片 *</span><div class="media-picker-control" data-media-picker data-required="true" data-business-type="BANNER_IMAGE" data-target-input="bannerImageUrl" data-title="选择 Banner 图片"><div class="media-picker-input-row"><input id="bannerImageUrl" maxlength="500" readonly placeholder="请选择或上传 Banner 图片"><button class="button button-secondary" type="button" data-media-picker-open>选择图片</button><button class="button button-ghost" type="button" data-media-picker-clear>清除</button></div><small class="media-picker-summary" data-media-picker-summary>尚未选择图片</small></div></div>
+                        <label class="field"><span>启用状态 *</span><select id="bannerEnableStatus" required><option value="ENABLED">启用</option><option value="DISABLED">禁用</option></select></label>
+                        <label class="field"><span>展示排序 *</span><input id="bannerSortOrder" type="number" min="0" step="1" value="0" required></label>
+                        <label class="field"><span>开始时间 *</span><input id="bannerStartTime" type="datetime-local" step="1" required></label>
+                        <label class="field"><span>结束时间 *</span><input id="bannerEndTime" type="datetime-local" step="1" required></label>
+                    </div>
+                </section>
+                <aside class="form-side-stack">
+                    <section class="panel form-panel">
+                        <div class="panel-header"><div><h3>跳转目标</h3><p>先选择项目，再选择该项目下的场次。</p></div></div>
+                        <div class="form-section field-grid">
+                            <input id="bannerTargetProjectId" type="hidden">
+                            <label class="field"><span>演出项目 *</span><div class="input-action-row"><input id="bannerTargetProjectTitle" readonly placeholder="尚未选择项目"><button class="button button-secondary" id="bannerChooseProjectButton" type="button">选择项目</button></div></label>
+                            <label class="field"><span>目标场次</span><select id="bannerTargetSessionId" disabled><option value="">不绑定具体场次</option></select><small class="form-help" id="bannerSessionHelp">选择项目后加载场次。</small></label>
+                        </div>
+                    </section>
+                    <section class="panel form-panel">
+                        <div class="panel-header"><div><h3>图片预览</h3><p>从统一媒体目录选择或上传图片。</p></div></div>
+                        <div class="form-section"><div id="bannerImagePreview" class="media-preview"><span>暂无图片</span></div></div>
+                    </section>
+                </aside>
+                <div class="sticky-form-actions"><a class="button button-secondary" th:href="@{/admin/operation/banners}">取消</a><button class="button button-primary" id="bannerSubmitButton" type="submit">保存 Banner</button></div>
+            </form>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/components/project-selector :: selector}"></div>
+<div th:replace="~{admin/components/media-selector :: selector}"></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/project-selector.js}"></script>
+<script th:src="@{/admin/js/media-selector.js}"></script>
+<script th:src="@{/admin/js/banner.js}"></script>
+</body>
+</html>

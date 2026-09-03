@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('退款管理')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="refundManagementPage">
+            <section class="page-heading">
+                <div>
+                    <p class="breadcrumb">交易管理 / 退款管理</p>
+                    <h2>退款管理</h2>
+                    <p>查看退款申请、费用快照和关联电子票；仅“退款中”的申请允许审核一次。</p>
+                </div>
+                <button class="button button-ghost" id="refreshRefundButton" type="button">刷新数据</button>
+            </section>
+
+            <section class="panel filter-panel">
+                <form id="refundFilterForm" class="filter-grid transaction-filter-grid">
+                    <label class="field compact filter-span-two">
+                        <span>关键词</span>
+                        <input id="refundKeyword" type="search" maxlength="100" placeholder="退款号、订单号、手机号、昵称、演出标题">
+                    </label>
+                    <label class="field compact">
+                        <span>退款状态</span>
+                        <select id="refundStatusFilter">
+                            <option value="">全部状态</option>
+                            <option value="REFUNDING">退款中</option>
+                            <option value="REFUND_SUCCESS">退款成功</option>
+                            <option value="REFUND_FAILED">退款失败</option>
+                        </select>
+                    </label>
+                    <label class="field compact">
+                        <span>用户 ID</span>
+                        <input id="refundUserId" type="number" min="1" step="1" placeholder="可选">
+                    </label>
+                    <label class="field compact">
+                        <span>订单 ID</span>
+                        <input id="refundOrderId" type="number" min="1" step="1" placeholder="可选">
+                    </label>
+                    <label class="field compact">
+                        <span>申请开始日期</span>
+                        <input id="refundDateFrom" type="date">
+                    </label>
+                    <label class="field compact">
+                        <span>申请结束日期</span>
+                        <input id="refundDateTo" type="date">
+                    </label>
+                    <div class="filter-actions transaction-filter-actions">
+                        <button class="button button-primary" type="submit">查询</button>
+                        <button class="button button-secondary" id="resetRefundFilterButton" type="button">重置</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel table-panel">
+                <div class="panel-header table-header">
+                    <div><h3>退款数据</h3><p id="refundTotalText">正在读取...</p></div>
+                    <div class="table-summary-chips" id="refundSummaryChips"></div>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table transaction-table refund-table">
+                        <thead>
+                        <tr>
+                            <th>退款 / 订单</th>
+                            <th>用户</th>
+                            <th>演出</th>
+                            <th>金额</th>
+                            <th>规则快照</th>
+                            <th>状态</th>
+                            <th>申请时间</th>
+                            <th class="align-right">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="refundTableBody">
+                        <tr><td colspan="8"><div class="table-empty">正在加载退款数据...</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-footer">
+                    <label class="page-size-field">每页
+                        <select id="refundPageSizeSelect">
+                            <option value="10">10</option>
+                            <option value="20">20</option>
+                            <option value="50">50</option>
+                        </select> 条
+                    </label>
+                    <div id="refundPagination" class="pagination"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="refundDetailModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-xlarge" role="dialog" aria-modal="true" aria-labelledby="refundDetailTitle">
+        <div class="modal-header">
+            <div><p class="modal-eyebrow">REFUND DETAIL</p><h3 id="refundDetailTitle">退款详情</h3></div>
+            <button class="icon-button" id="refundDetailClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body" id="refundDetailContent">
+            <div class="table-empty">正在读取退款详情...</div>
+        </div>
+        <div class="modal-footer modal-footer-split">
+            <div class="modal-footer-links">
+                <a class="button button-secondary" id="refundDetailOrderLink" href="/admin/orders">查看订单</a>
+                <a class="button button-secondary" id="refundDetailUserLink" href="/admin/users">查看用户</a>
+            </div>
+            <button class="button button-ghost" id="refundDetailCloseButton" type="button">关闭</button>
+        </div>
+    </div>
+</div>
+
+<div id="refundStatusModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-small" role="dialog" aria-modal="true" aria-labelledby="refundStatusTitle">
+        <form id="refundStatusForm">
+            <div class="modal-header">
+                <div><p class="modal-eyebrow">REFUND RESULT</p><h3 id="refundStatusTitle">审核退款申请</h3></div>
+                <button class="icon-button" id="refundStatusClose" type="button" aria-label="关闭">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="inline-alert warning">
+                    退款成功会同步将订单更新为退款成功并使可用电子票失效；退款驳回会把订单恢复为待使用。审核完成后不可再次修改。
+                </div>
+                <div class="compact-detail-list status-current-summary">
+                    <div><span>退款编号</span><strong id="statusRefundNo">-</strong></div>
+                    <div><span>当前状态</span><strong id="statusCurrentRefundStatus">-</strong></div>
+                </div>
+                <label class="field status-select-field">
+                    <span>审核结果 *</span>
+                    <select id="statusTargetRefundStatus" required>
+                        <option value="REFUND_SUCCESS">审核通过</option>
+                        <option value="REFUND_FAILED">审核驳回</option>
+                    </select>
+                </label>
+                <label class="field status-select-field" id="refundFailReasonField" hidden>
+                    <span>失败原因 *</span>
+                    <textarea id="refundFailReason" rows="4" maxlength="255" placeholder="请填写退款失败原因"></textarea>
+                </label>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary" id="refundStatusCancel" type="button">取消</button>
+                <button class="button button-primary" id="refundStatusSubmit" type="submit">确认审核</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/refund-management.js}"></script>
+</body>
+</html>

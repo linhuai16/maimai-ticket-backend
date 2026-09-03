@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main id="noticeFormPage" class="page-content" th:attr="data-mode=${formMode},data-notice-id=${noticeId}">
+            <section class="page-heading"><div><p class="breadcrumb">运营配置 / 观演须知 / <span th:text="${formMode == 'edit' ? '编辑' : '新增'}">新增</span></p><h2 th:text="${pageTitle}">新增观演须知</h2><p>维护观演须知标题、默认说明和图标。</p></div><a class="button button-secondary" th:href="@{/admin/operation/notices}">返回列表</a></section>
+            <form id="noticeForm" class="form-page-grid">
+                <section class="panel form-panel form-panel-main">
+                    <div class="panel-header"><div><h3>须知信息</h3><p>内部类型编码由系统维护。</p></div></div>
+                    <div class="form-section field-grid field-grid-two">
+                        <label class="field field-wide"><span>须知标题 *</span><input id="noticeTitle" maxlength="50" required></label>
+                        <div class="field field-wide"><span>观演须知图标 *</span><div class="media-picker-control" data-media-picker data-required="true" data-business-type="NOTICE_ICON" data-target-input="noticeIconUrl" data-title="选择观演须知图标"><div class="media-picker-input-row"><input id="noticeIconUrl" maxlength="500" readonly placeholder="请选择或上传观演须知图标"><button class="button button-secondary" type="button" data-media-picker-open>选择图标</button><button class="button button-ghost" type="button" data-media-picker-clear>清除</button></div><small class="media-picker-summary" data-media-picker-summary>尚未选择图标</small></div></div>
+                        <label class="field field-wide"><span>默认须知内容 *</span><textarea id="noticeDescription" rows="10" required placeholder="填写默认观演说明"></textarea></label>
+                    </div>
+                </section>
+                <aside class="form-side-stack"><section class="panel form-panel"><div class="panel-header"><div><h3>图标预览</h3><p>同一须知类型配置一次图标，各演出复用。</p></div></div><div class="form-section"><div id="noticeIconPreview" class="media-preview media-preview-square"><span>暂无图标</span></div></div></section></aside>
+                <div class="sticky-form-actions"><a class="button button-secondary" th:href="@{/admin/operation/notices}">取消</a><button class="button button-primary" id="noticeSubmitButton" type="submit">保存须知</button></div>
+            </form>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/components/media-selector :: selector}"></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/media-selector.js}"></script>
+<script th:src="@{/admin/js/notice-management.js}"></script>
+</body>
+</html>

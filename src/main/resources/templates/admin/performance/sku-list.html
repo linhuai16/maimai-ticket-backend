@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('票档管理')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="skuManagementPage"
+              th:attr="data-selected-project-id=${selectedProjectId},data-selected-session-id=${selectedSessionId}">
+            <section class="page-heading">
+                <div>
+                    <p class="breadcrumb">演出管理</p>
+                    <h2>票档管理</h2>
+                    <p>先选择项目和场次，再维护票档价格、状态、排序及可售库存。</p>
+                </div>
+                <button class="button button-primary" id="createSkuButton" type="button" disabled>＋ 新建票档</button>
+            </section>
+
+            <section class="panel selector-panel">
+                <div class="selector-layout">
+                    <label class="field">
+                        <span>演出项目</span>
+                        <select id="skuProjectSelect">
+                            <option value="">请选择演出项目</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>演出场次</span>
+                        <select id="skuSessionSelect" disabled>
+                            <option value="">请先选择项目</option>
+                        </select>
+                    </label>
+                    <div class="selector-actions">
+                        <a class="button button-ghost" id="goSessionPageLink" href="/admin/performances/sessions" hidden>管理场次</a>
+                    </div>
+                </div>
+            </section>
+
+            <section class="project-context-card sku-context-card" id="selectedSessionCard" hidden>
+                <div class="project-context-main">
+                    <div class="project-context-poster">档</div>
+                    <div>
+                        <p id="skuContextProjectTitle">当前项目</p>
+                        <h3 id="skuContextSessionTitle">-</h3>
+                        <div class="context-meta" id="skuContextMeta"></div>
+                    </div>
+                </div>
+                <div class="project-context-stats">
+                    <div><span>票档数</span><strong id="skuContextCount">0</strong></div>
+                    <div><span>可售库存</span><strong id="skuContextAvailable">0</strong></div>
+                    <div><span>锁定 / 已售</span><strong id="skuContextLockedSold">0 / 0</strong></div>
+                </div>
+            </section>
+
+            <section class="panel filter-panel">
+                <form id="skuFilterForm" class="filter-grid filter-grid-session">
+                    <label class="field compact">
+                        <span>票档关键词</span>
+                        <input id="skuKeyword" type="search" placeholder="票档名称或描述">
+                    </label>
+                    <label class="field compact">
+                        <span>票档状态</span>
+                        <select id="skuStatusFilter">
+                            <option value="">全部状态</option>
+                            <option value="PRESALE">预售</option>
+                            <option value="ON_SALE">在售</option>
+                            <option value="SOLD_OUT">已售罄</option>
+                            <option value="OFFLINE">已下架</option>
+                        </select>
+                    </label>
+                    <div class="filter-actions">
+                        <button class="button button-primary" type="submit">筛选</button>
+                        <button class="button button-secondary" id="resetSkuFilterButton" type="button">重置</button>
+                    </div>
+                </form>
+            </section>
+
+            <section class="panel table-panel">
+                <div class="panel-header table-header">
+                    <div><h3>票档数据</h3><p id="skuTotalText">第三方票档的 Provider 价格/库存只读；麦麦可单独配置平台售价。</p></div>
+                    <button class="button button-ghost button-small" id="refreshSkuButton" type="button" disabled>刷新</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table sku-table">
+                        <thead>
+                        <tr>
+                            <th>票档</th>
+                            <th>麦麦平台售价</th>
+                            <th>可售库存</th>
+                            <th>锁定 / 已售</th>
+                            <th>状态</th>
+                            <th>排序 / 版本</th>
+                            <th>更新时间</th>
+                            <th class="align-right">操作</th>
+                        </tr>
+                        </thead>
+                        <tbody id="skuTableBody">
+                        <tr><td colspan="8"><div class="table-empty">选择场次后显示票档</div></td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+    </div>
+</div>
+
+<div id="skuModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="skuModalTitle">
+        <form id="skuForm" novalidate>
+            <div class="modal-header">
+                <div><p class="modal-eyebrow">TICKET SKU</p><h3 id="skuModalTitle">新建票档</h3></div>
+                <button class="icon-button" id="skuModalClose" type="button" aria-label="关闭">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="inline-alert info">编辑票档基础信息时不会修改库存。库存请使用独立的“调整库存”操作。</div>
+                <div class="field-grid field-grid-two modal-form-grid">
+                    <label class="field">
+                        <span>票档名称 *</span>
+                        <input id="skuName" type="text" maxlength="100" required placeholder="例如：看台 380 元">
+                    </label>
+                    <label class="field">
+                        <span>票价 *</span>
+                        <input id="skuPrice" type="number" min="0.01" max="99999999.99" step="0.01" required>
+                    </label>
+                    <label class="field">
+                        <span>票档状态 *</span>
+                        <select id="skuStatus" required>
+                            <option value="PRESALE">预售</option>
+                            <option value="ON_SALE">在售</option>
+                            <option value="SOLD_OUT">已售罄</option>
+                            <option value="OFFLINE">已下架</option>
+                        </select>
+                    </label>
+                    <label class="field">
+                        <span>排序值</span>
+                        <input id="skuSortOrder" type="number" min="0" step="1" value="0">
+                    </label>
+                    <label class="field" id="createStockField">
+                        <span>初始可售库存 *</span>
+                        <input id="skuStockAvailable" type="number" min="0" step="1" value="100">
+                        <small>可售库存为 0 时，状态只能是已售罄或已下架</small>
+                    </label>
+                    <label class="field field-wide">
+                        <span>票档描述</span>
+                        <textarea id="skuDesc" rows="4" maxlength="200" placeholder="最多 200 个字符"></textarea>
+                    </label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary" id="skuModalCancel" type="button">取消</button>
+                <button class="button button-primary" id="saveSkuButton" type="submit">保存票档</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="platformPriceModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-small" role="dialog" aria-modal="true">
+        <form id="platformPriceForm" novalidate>
+            <div class="modal-header"><div><p class="modal-eyebrow">PLATFORM PRICE</p><h3>设置麦麦平台售价</h3></div><button class="icon-button" id="platformPriceModalClose" type="button">×</button></div>
+            <div class="modal-body">
+                <div class="inline-alert info">Provider 票面价、票源销售价和结算价保持只读。这里修改的是用户在麦麦看到并支付的票价。</div>
+                <div class="compact-detail-list">
+                    <div><span>票档</span><strong id="platformPriceSkuName">-</strong></div>
+                    <div><span>Provider 销售价</span><strong id="platformProviderSalePrice">-</strong></div>
+                    <div><span>Provider 结算价</span><strong id="platformSettlementPrice">-</strong></div>
+                </div>
+                <label class="field"><span>售价策略</span><select id="platformPriceMode"><option value="FIXED">固定麦麦售价</option><option value="FOLLOW_PROVIDER">跟随 Provider 销售价</option></select></label>
+                <label class="field" id="fixedPlatformPriceField"><span>麦麦平台售价 *</span><input id="fixedPlatformPrice" type="number" min="0.01" step="0.01"></label>
+            </div>
+            <div class="modal-footer"><button class="button button-secondary" id="platformPriceModalCancel" type="button">取消</button><button class="button button-primary" type="submit">保存平台售价</button></div>
+        </form>
+    </div>
+</div>
+
+<div id="stockModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-small" role="dialog" aria-modal="true" aria-labelledby="stockModalTitle">
+        <form id="stockForm" novalidate>
+            <div class="modal-header">
+                <div><p class="modal-eyebrow">INVENTORY</p><h3 id="stockModalTitle">调整可售库存</h3></div>
+                <button class="icon-button" id="stockModalClose" type="button" aria-label="关闭">×</button>
+            </div>
+            <div class="modal-body">
+                <div class="compact-detail-list stock-summary">
+                    <div><span>票档</span><strong id="stockSkuName">-</strong></div>
+                    <div><span>锁定库存</span><strong id="stockLockedText">0</strong></div>
+                    <div><span>已售数量</span><strong id="stockSoldText">0</strong></div>
+                    <div><span>当前版本</span><strong id="stockVersionText">0</strong></div>
+                </div>
+                <label class="field stock-input-field">
+                    <span>新的可售库存 *</span>
+                    <input id="newStockAvailable" type="number" min="0" step="1" required>
+                </label>
+                <div class="inline-alert warning">保存使用 version 乐观锁。若其他管理员已修改库存，系统会要求刷新后重试。</div>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-secondary" id="stockModalCancel" type="button">取消</button>
+                <button class="button button-primary" id="saveStockButton" type="submit">保存库存</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="skuDetailModal" class="modal-backdrop" hidden>
+    <div class="modal-card modal-large" role="dialog" aria-modal="true" aria-labelledby="skuDetailTitle">
+        <div class="modal-header">
+            <div><p class="modal-eyebrow">SKU DETAIL</p><h3 id="skuDetailTitle">票档详情</h3></div>
+            <button class="icon-button" id="skuDetailClose" type="button" aria-label="关闭">×</button>
+        </div>
+        <div class="modal-body" id="skuDetailContent"><div class="table-empty">正在读取...</div></div>
+        <div class="modal-footer"><button class="button button-secondary" id="skuDetailCloseButton" type="button">关闭</button></div>
+    </div>
+</div>
+
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/sku-management.js(v='b12r6-width')}"></script>
+</body>
+</html>

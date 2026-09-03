@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.TicketSourceReconciliationMapper">
+    <insert id="insertBatch" parameterType="com.example.maimaibackend.ticketsource.reconcile.model.TicketSourceReconciliationBatch" useGeneratedKeys="true" keyProperty="batchId">
+        INSERT INTO ticket_source_reconciliation_batch
+        (batch_no,provider_id,provider_code,batch_status,total_count,matched_count,difference_count,error_count,
+         start_time,remark,create_time,update_time)
+        VALUES
+        (#{batchNo},#{providerId},#{providerCode},'PROCESSING',0,0,0,0,#{startTime},#{remark},NOW(),NOW())
+    </insert>
+
+    <select id="selectCandidates" resultType="com.example.maimaibackend.ticketsource.reconcile.model.TicketSourceReconciliationCandidate">
+        SELECT o.order_id AS orderId,o.order_no AS orderNo,b.provider_id AS providerId,
+               p.provider_code AS providerCode,b.provider_order_id AS providerOrderId,
+               o.order_status AS localOrderStatus,o.payment_status AS paymentStatus,
+               o.pay_amount AS localPayAmount,r.refund_id AS refundId,r.refund_status AS localRefundStatus,
+               r.refund_amount AS localRefundAmount,rb.provider_refund_id AS providerRefundId,
+               SUM(CASE WHEN et.ticket_status='UNUSED' THEN 1 ELSE 0 END) AS localValidTicketCount,
+               COUNT(et.ticket_id) AS localTicketTotal
+        FROM ticket_source_order_bridge b
+        JOIN ticket_order o ON o.order_id=b.order_id
+        JOIN ticket_source_provider p ON p.provider_id=b.provider_id
+        LEFT JOIN refund_record r ON r.order_id=o.order_id
+        LEFT JOIN ticket_source_refund_bridge rb ON rb.refund_id=r.refund_id
+        LEFT JOIN electronic_ticket et ON et.order_id=o.order_id
+        WHERE b.provider_id=#{providerId}
+          AND b.provider_order_id IS NOT NULL AND b.provider_order_id&lt;&gt;''
+        <if test="orderIds != null and orderIds.size() > 0">
+          AND o.order_id IN
+          <foreach collection="orderIds" item="id" open="(" separator="," close=")">#{id}</foreach>
+        </if>
+        GROUP BY o.order_id,o.order_no,b.provider_id,p.provider_code,b.provider_order_id,
+                 o.order_status,o.payment_status,o.pay_amount,r.refund_id,r.refund_status,r.refund_amount,rb.provider_refund_id
+        ORDER BY o.order_id ASC
+    </select>
+
+    <insert id="insertDetail" parameterType="com.example.maimaibackend.ticketsource.reconcile.model.TicketSourceReconciliationDetail" useGeneratedKeys="true" keyProperty="detailId">
+        INSERT INTO ticket_source_reconciliation_detail
+        (batch_id,order_id,order_no,provider_order_id,compare_status,difference_types,
+         local_order_status,provider_order_status,local_pay_amount,provider_pay_amount,
+         local_refund_status,provider_refund_status,local_refund_amount,provider_refund_amount,
+         local_valid_ticket_count,provider_valid_ticket_count,
+         local_ticket_total,provider_ticket_total,error_code,error_message,snapshot_text,create_time)
+        VALUES
+        (#{batchId},#{orderId},#{orderNo},#{providerOrderId},#{compareStatus},#{differenceTypes},
+         #{localOrderStatus},#{providerOrderStatus},#{localPayAmount},#{providerPayAmount},
+         #{localRefundStatus},#{providerRefundStatus},#{localRefundAmount},#{providerRefundAmount},
+         #{localValidTicketCount},#{providerValidTicketCount},
+         #{localTicketTotal},#{providerTicketTotal},#{errorCode},#{errorMessage},#{snapshotText},NOW())
+    </insert>
+
+    <update id="finishBatch">
+        UPDATE ticket_source_reconciliation_batch
+        SET batch_status=#{batchStatus},total_count=#{totalCount},matched_count=#{matchedCount},
+            difference_count=#{differenceCount},error_count=#{errorCount},finish_time=NOW(),
+            remark=#{remark},update_time=NOW()
+        WHERE batch_id=#{batchId}
+    </update>
+
+    <select id="selectBatch" resultType="com.example.maimaibackend.ticketsource.reconcile.model.TicketSourceReconciliationBatch">
+        SELECT batch_id AS batchId,batch_no AS batchNo,provider_id AS providerId,provider_code AS providerCode,
+               batch_status AS batchStatus,total_count AS totalCount,matched_count AS matchedCount,
+               difference_count AS differenceCount,error_count AS errorCount,start_time AS startTime,
+               finish_time AS finishTime,remark,create_time AS createTime,update_time AS updateTime
+        FROM ticket_source_reconciliation_batch WHERE batch_id=#{batchId} LIMIT 1
+    </select>
+
+    <select id="selectDetails" resultType="com.example.maimaibackend.ticketsource.reconcile.model.TicketSourceReconciliationDetail">
+        SELECT detail_id AS detailId,batch_id AS batchId,order_id AS orderId,order_no AS orderNo,
+               provider_order_id AS providerOrderId,compare_status AS compareStatus,difference_types AS differenceTypes,
+               local_order_status AS localOrderStatus,provider_order_status AS providerOrderStatus,
+               local_pay_amount AS localPayAmount,provider_pay_amount AS providerPayAmount,
+               local_refund_status AS localRefundStatus,provider_refund_status AS providerRefundStatus,
+               local_refund_amount AS localRefundAmount,provider_refund_amount AS providerRefundAmount,
+               local_valid_ticket_count AS localValidTicketCount,provider_valid_ticket_count AS providerValidTicketCount,
+               local_ticket_total AS localTicketTotal,provider_ticket_total AS providerTicketTotal,
+               error_code AS errorCode,error_message AS errorMessage,snapshot_text AS snapshotText,create_time AS createTime
+        FROM ticket_source_reconciliation_detail WHERE batch_id=#{batchId} ORDER BY detail_id ASC
+    </select>
+</mapper>

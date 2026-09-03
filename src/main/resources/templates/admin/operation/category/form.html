@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main id="categoryFormPage" class="page-content" th:attr="data-category-id=${categoryId}">
+            <section class="page-heading"><div><p class="breadcrumb">运营配置 / 演出分类 / 编辑</p><h2>编辑演出分类</h2><p>维护演出分类名称、图标和排序。</p></div><a class="button button-secondary" th:href="@{/admin/operation/categories}">返回列表</a></section>
+            <form id="categoryForm" class="form-page-grid">
+                <section class="panel form-panel form-panel-main">
+                    <div class="panel-header"><div><h3>分类信息</h3><p>修改名称、图标资源和前台展示排序。</p></div></div>
+                    <div class="form-section field-grid field-grid-two">
+                        <label class="field"><span>分类编码</span><input id="categoryCode" readonly></label>
+                        <label class="field"><span>分类名称 *</span><input id="categoryName" maxlength="50" required></label>
+                        <div class="field field-wide"><span>分类图标 *</span><div class="media-picker-control" data-media-picker data-required="true" data-business-type="CATEGORY_ICON" data-target-input="categoryIconUrl" data-title="选择分类图标"><div class="media-picker-input-row"><input id="categoryIconUrl" maxlength="500" readonly placeholder="请选择或上传分类图标"><button class="button button-secondary" type="button" data-media-picker-open>选择图片</button><button class="button button-ghost" type="button" data-media-picker-clear>清除</button></div><small class="media-picker-summary" data-media-picker-summary>尚未选择图片</small></div></div>
+                        <label class="field"><span>展示排序 *</span><input id="categorySortOrder" type="number" min="0" step="1" required></label>
+                    </div>
+                </section>
+                <aside class="form-side-stack"><section class="panel form-panel"><div class="panel-header"><div><h3>图标预览</h3><p>从统一媒体目录选择或上传图标。</p></div></div><div class="form-section"><div id="categoryIconPreview" class="media-preview media-preview-square"><span>暂无图标</span></div></div></section></aside>
+                <div class="sticky-form-actions"><a class="button button-secondary" th:href="@{/admin/operation/categories}">取消</a><button class="button button-primary" id="categorySubmitButton" type="submit">保存分类</button></div>
+            </form>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/components/media-selector :: selector}"></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/media-selector.js}"></script>
+<script th:src="@{/admin/js/category.js}"></script>
+</body>
+</html>

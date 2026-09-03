@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminDashboardMapper">
+
+    <select id="selectDashboardSummary" resultType="com.example.maimaibackend.vo.admin.AdminDashboardVO">
+        SELECT
+            (SELECT COUNT(*) FROM performance_project) AS totalProjectCount,
+            (SELECT COUNT(*) FROM performance_project WHERE project_status = 'ON_SALE') AS onSaleProjectCount,
+            (SELECT COUNT(*) FROM performance_project WHERE project_status = 'COMING_SOON') AS comingSoonProjectCount,
+            (SELECT COUNT(*) FROM performance_session) AS sessionCount,
+            (SELECT COUNT(*) FROM performance_session WHERE session_status = 'ON_SALE') AS onSaleSessionCount,
+            (SELECT COUNT(*) FROM ticket_sku) AS skuCount,
+            (SELECT IFNULL(SUM(sku.stock_available), 0)
+             FROM ticket_sku sku
+             JOIN performance_session s ON s.session_id = sku.session_id
+             JOIN performance_project p ON p.project_id = sku.project_id
+             WHERE sku.sku_status IN ('ON_SALE', 'PRESALE')
+               AND s.session_status IN ('ON_SALE', 'PRESALE')
+               AND p.project_status &lt;&gt; 'OFFLINE') AS stockAvailableCount,
+            (SELECT IFNULL(SUM(stock_locked), 0) FROM ticket_sku) AS stockLockedCount,
+            (SELECT IFNULL(SUM(sold_count), 0) FROM ticket_sku) AS soldCount,
+            (SELECT COUNT(*) FROM ticket_order) AS orderCount,
+            (SELECT COUNT(*) FROM ticket_order WHERE order_status = 'WAIT_PAY') AS waitPayOrderCount,
+            (SELECT COUNT(*) FROM ticket_order WHERE order_status = 'WAIT_USE') AS waitUseOrderCount,
+            (SELECT COUNT(*) FROM ticket_order WHERE order_status = 'FINISHED') AS finishedOrderCount,
+            (SELECT COUNT(*) FROM ticket_order WHERE order_status = 'REFUNDING') AS refundingOrderCount,
+            (SELECT COUNT(*) FROM ticket_order WHERE order_status = 'REFUND_SUCCESS') AS refundSuccessOrderCount,
+            (SELECT COUNT(*) FROM user_account) AS userCount,
+            (SELECT COUNT(*) FROM ticket_order WHERE DATE(create_time) = CURDATE()) AS todayOrderCount,
+            (SELECT IFNULL(SUM(pay_amount), 0) FROM ticket_order WHERE order_status IN ('WAIT_USE', 'FINISHED', 'REFUNDING', 'REFUND_SUCCESS')) AS paidOrderAmount,
+            (SELECT IFNULL(SUM(pay_amount), 0) FROM ticket_order WHERE pay_time IS NOT NULL AND DATE(pay_time) = CURDATE()) AS todayPaidAmount
+    </select>
+
+</mapper>

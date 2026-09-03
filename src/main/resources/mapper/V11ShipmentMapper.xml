@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.V11ShipmentMapper">
+
+    <sql id="shipmentContextColumns">
+        SELECT o.order_id AS orderId,o.order_no AS orderNo,o.user_id AS userId,o.project_id AS projectId,
+               o.order_status AS orderStatus,o.payment_status AS paymentStatus,o.delivery_type AS deliveryType,
+               COALESCE(q.delivery_mode,CASE WHEN o.delivery_fee_amount&gt;0 THEN 'EXPRESS' ELSE NULL END) AS deliveryMode,
+               o.delivery_fee_amount AS deliveryFeeAmount,b.bridge_id AS bridgeId,b.provider_id AS providerId,
+               p.provider_code AS providerCode,b.provider_order_id AS providerOrderId,b.bridge_status AS bridgeStatus,
+               COALESCE((SELECT rr.delivery_fee_refundable FROM refund_rule rr
+                         WHERE rr.project_id=o.project_id ORDER BY rr.refund_rule_id DESC LIMIT 1),0) AS deliveryFeeRuleRefundable
+        FROM ticket_order o
+        JOIN ticket_source_order_bridge b ON b.order_id=o.order_id
+        JOIN ticket_source_provider p ON p.provider_id=b.provider_id
+        LEFT JOIN ticket_source_order_quote q ON q.quote_id=b.quote_id
+    </sql>
+
+    <select id="selectShipmentContext" resultType="com.example.maimaibackend.ticketsource.fulfillment.shipment.model.V11ShipmentContext">
+        <include refid="shipmentContextColumns"/>
+        WHERE o.order_id=#{orderId} AND o.user_id=#{userId} AND b.order_model='SINGLE_SKU'
+        LIMIT 1
+    </select>
+
+    <select id="selectShipmentContextAdmin" resultType="com.example.maimaibackend.ticketsource.fulfillment.shipment.model.V11ShipmentContext">
+        <include refid="shipmentContextColumns"/>
+        WHERE o.order_id=#{orderId} AND b.order_model='SINGLE_SKU'
+        LIMIT 1
+    </select>
+
+    <select id="selectShipmentByBridgeId" resultType="com.example.maimaibackend.ticketsource.fulfillment.shipment.model.V11ShipmentRecord">
+        SELECT shipment_id AS shipmentId,order_bridge_id AS orderBridgeId,provider_shipment_id AS providerShipmentId,
+               shipment_status AS shipmentStatus,carrier_code AS carrierCode,carrier_name AS carrierName,
+               waybill_no AS waybillNo,tracking_url AS trackingUrl,shipped_time AS shippedTime,signed_time AS signedTime,
+               last_sync_time AS lastSyncTime,provider_version AS providerVersion,last_sync_status AS lastSyncStatus,
+               last_error_code AS lastErrorCode,last_error_message AS lastErrorMessage
+        FROM ticket_source_shipment WHERE order_bridge_id=#{bridgeId} LIMIT 1
+    </select>
+
+    <insert id="insertWaitShipment">
+        INSERT IGNORE INTO ticket_source_shipment
+        (order_bridge_id,shipment_status,last_sync_status,create_time,update_time)
+        VALUES (#{bridgeId},'WAIT_SHIPMENT','PENDING',NOW(),NOW())
+    </insert>
+
+    <update id="markShipmentNotRequired">
+        UPDATE ticket_source_shipment
+        SET shipment_status='NOT_REQUIRED',last_sync_status='SUCCESS',last_sync_time=#{syncTime},
+            last_error_code=NULL,last_error_message=NULL,update_time=NOW()
+        WHERE order_bridge_id=#{bridgeId} AND shipment_status='WAIT_SHIPMENT'
+    </update>
+
+    <insert id="upsertProviderShipment">
+        INSERT INTO ticket_source_shipment
+        (order_bridge_id,shipment_status,carrier_code,carrier_name,waybill_no,tracking_url,
+         shipped_time,signed_time,last_sync_time,provider_version,last_sync_status,last_error_code,last_error_message,
+         create_time,update_time)
+        VALUES
+        (#{bridgeId},#{shipmentStatus},#{carrierCode},#{carrierName},#{waybillNo},#{trackingUrl},
+         #{shippedTime},#{signedTime},#{lastSyncTime},#{providerVersion},'SUCCESS',NULL,NULL,NOW(),NOW())
+        ON DUPLICATE KEY UPDATE shipment_status=VALUES(shipment_status),carrier_code=COALESCE(VALUES(carrier_code),carrier_code),
+          carrier_name=COALESCE(VALUES(carrier_name),carrier_name),waybill_no=COALESCE(VALUES(waybill_no),waybill_no),
+          tracking_url=COALESCE(VALUES(tracking_url),tracking_url),
+          shipped_time=COALESCE(VALUES(shipped_time),shipped_time),signed_time=COALESCE(VALUES(signed_time),signed_time),
+          last_sync_time=VALUES(last_sync_time),provider_version=VALUES(provider_version),last_sync_status='SUCCESS',
+          last_error_code=NULL,last_error_message=NULL,update_time=NOW()
+    </insert>
+
+    <update id="markSyncFailure">
+        UPDATE ticket_source_shipment
+        SET last_sync_status='FAILED',last_error_code=#{errorCode},last_error_message=#{errorMessage},
+            last_sync_time=#{syncTime},update_time=NOW()
+        WHERE order_bridge_id=#{bridgeId}
+    </update>
+
+    <select id="selectPendingShipmentContexts" resultType="com.example.maimaibackend.ticketsource.fulfillment.shipment.model.V11ShipmentContext">
+        <include refid="shipmentContextColumns"/>
+        JOIN ticket_source_shipment s ON s.order_bridge_id=b.bridge_id
+        WHERE o.delivery_type='PAPER_TICKET'
+          AND o.order_status IN ('WAIT_USE','FINISHED','COMPLETED','REFUNDING','REFUND_SUCCESS')
+          AND b.provider_order_id IS NOT NULL
+          AND (q.delivery_mode='EXPRESS' OR (q.delivery_mode IS NULL AND o.delivery_fee_amount&gt;0))
+          AND (
+              (s.shipment_status IN ('WAIT_SHIPMENT','SHIPPED','IN_TRANSIT','EXCEPTION')
+               AND (s.last_sync_time IS NULL OR s.last_sync_time&lt;=#{staleBefore}))
+              OR
+              (s.shipment_status='DELIVERED'
+               AND (s.last_sync_time IS NULL OR s.last_sync_time&lt;=#{deliveredStaleBefore}))
+          )
+        ORDER BY COALESCE(s.last_sync_time,s.create_time),s.shipment_id
+        LIMIT #{limit}
+    </select>
+</mapper>

@@ -1,0 +1,90 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminTicketLogMapper">
+    <sql id="LogColumns">
+        l.log_id AS logId,
+        l.log_no AS logNo,
+        l.business_type AS businessType,
+        l.action_type AS actionType,
+        l.operator_type AS operatorType,
+        l.operator_id AS operatorId,
+        l.operator_name AS operatorName,
+        l.source_ip AS sourceIp,
+        l.target_type AS targetType,
+        l.target_id AS targetId,
+        l.order_id AS orderId,
+        o.order_no AS orderNo,
+        l.ticket_id AS ticketId,
+        t.ticket_no AS ticketNo,
+        p.title AS projectTitle,
+        l.before_status AS beforeStatus,
+        l.after_status AS afterStatus,
+        l.result_status AS resultStatus,
+        l.action_description AS actionDescription,
+        l.detail_json AS detailJson,
+        l.create_time AS createTime
+    </sql>
+
+    <sql id="LogJoins">
+        FROM ticket_operation_log l
+        LEFT JOIN ticket_order o ON o.order_id = l.order_id
+        LEFT JOIN electronic_ticket t ON t.ticket_id = l.ticket_id
+        LEFT JOIN performance_project p ON p.project_id = o.project_id
+    </sql>
+
+    <sql id="LogWhere">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    l.log_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR l.action_description LIKE CONCAT('%', #{keyword}, '%')
+                    OR l.operator_name LIKE CONCAT('%', #{keyword}, '%')
+                    OR o.order_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR t.ticket_no LIKE CONCAT('%', #{keyword}, '%')
+                    OR p.title LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="businessType != null and businessType != ''">AND l.business_type = #{businessType}</if>
+            <if test="operatorType != null and operatorType != ''">AND l.operator_type = #{operatorType}</if>
+            <if test="actionType != null and actionType != ''">AND l.action_type = #{actionType}</if>
+            <if test="resultStatus != null and resultStatus != ''">AND l.result_status = #{resultStatus}</if>
+            <if test="ticketId != null">AND l.ticket_id = #{ticketId}</if>
+            <if test="orderId != null">AND l.order_id = #{orderId}</if>
+            <if test="operatorId != null">AND l.operator_id = #{operatorId}</if>
+            <if test="dateFrom != null and dateFrom != ''">AND l.create_time &gt;= CONCAT(#{dateFrom}, ' 00:00:00')</if>
+            <if test="dateTo != null and dateTo != ''">AND l.create_time &lt;= CONCAT(#{dateTo}, ' 23:59:59')</if>
+        </where>
+    </sql>
+
+    <insert id="insertLog" parameterType="com.example.maimaibackend.dto.admin.TicketOperationLogDTO">
+        INSERT INTO ticket_operation_log
+        (log_no, business_type, action_type, operator_type, operator_id, operator_name, source_ip,
+         target_type, target_id, order_id, ticket_id, before_status, after_status, result_status,
+         action_description, detail_json, create_time)
+        VALUES
+        (#{logNo}, #{businessType}, #{actionType}, #{operatorType}, #{operatorId}, #{operatorName}, #{sourceIp},
+         #{targetType}, #{targetId}, #{orderId}, #{ticketId}, #{beforeStatus}, #{afterStatus}, #{resultStatus},
+         #{actionDescription}, #{detailJson}, #{createTime})
+    </insert>
+
+    <select id="countLogs" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        <include refid="LogJoins"/>
+        <include refid="LogWhere"/>
+    </select>
+
+    <select id="selectLogs" resultType="com.example.maimaibackend.vo.admin.AdminTicketLogItemVO">
+        SELECT <include refid="LogColumns"/>
+        <include refid="LogJoins"/>
+        <include refid="LogWhere"/>
+        ORDER BY l.create_time DESC, l.log_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectLogDetail" resultType="com.example.maimaibackend.vo.admin.AdminTicketLogItemVO">
+        SELECT <include refid="LogColumns"/>
+        <include refid="LogJoins"/>
+        WHERE l.log_id = #{logId}
+        LIMIT 1
+    </select>
+</mapper>

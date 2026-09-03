@@ -1,0 +1,24 @@
+package com.example.maimaibackend.ticketsource.gateway;
+
+public enum TicketSourceOperation {
+    HEALTH,
+    QUERY_PROJECTS,
+    GET_PROJECT,
+    QUERY_SESSIONS,
+    QUERY_SKUS,
+    QUERY_INVENTORY,
+    CREATE_ORDER,
+    CONFIRM_PAYMENT,
+    CANCEL_ORDER,
+    GET_ORDER,
+    FIND_ORDER,
+    REQUEST_TICKETS,
+    TRIGGER_FULFILLMENT,
+    GET_TICKETS,
+    REFRESH_DYNAMIC_CREDENTIAL,
+    QUOTE_DELIVERY,
+    GET_SHIPMENT,
+    QUOTE_REFUND,
+    REQUEST_REFUND,
+    GET_REFUND
+}

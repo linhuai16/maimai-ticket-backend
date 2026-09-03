@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminUserMapper">
+
+    <sql id="UserWhereSql">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (
+                    u.phone LIKE CONCAT('%', #{keyword}, '%')
+                    OR u.nickname LIKE CONCAT('%', #{keyword}, '%')
+                )
+            </if>
+            <if test="accountStatus != null and accountStatus != ''">
+                AND u.account_status = #{accountStatus}
+            </if>
+        </where>
+    </sql>
+
+    <select id="countUserList" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM user_account u
+        <include refid="UserWhereSql"/>
+    </select>
+
+    <select id="selectUserList" resultType="com.example.maimaibackend.vo.admin.AdminUserItemVO">
+        SELECT
+            u.user_id AS userId,
+            u.phone AS phone,
+            u.nickname AS nickname,
+            u.avatar_url AS avatarUrl,
+            u.account_status AS accountStatus,
+            u.create_time AS createTime,
+            u.update_time AS updateTime,
+            IFNULL(order_stat.order_count, 0) AS orderCount,
+            IFNULL(order_stat.wait_pay_order_count, 0) AS waitPayOrderCount,
+            IFNULL(order_stat.paid_order_count, 0) AS paidOrderCount,
+            IFNULL(order_stat.total_pay_amount, 0) AS totalPayAmount,
+            IFNULL(audience_stat.audience_count, 0) AS audienceCount,
+            IFNULL(address_stat.address_count, 0) AS addressCount,
+            IFNULL(want_stat.want_count, 0) AS wantCount
+        FROM user_account u
+        LEFT JOIN (
+            SELECT
+                user_id,
+                COUNT(*) AS order_count,
+                SUM(CASE WHEN order_status = 'WAIT_PAY' THEN 1 ELSE 0 END) AS wait_pay_order_count,
+                SUM(CASE WHEN order_status IN ('WAIT_USE', 'FINISHED', 'REFUNDING', 'REFUND_SUCCESS') THEN 1 ELSE 0 END) AS paid_order_count,
+                SUM(CASE WHEN pay_time IS NOT NULL THEN pay_amount ELSE 0 END) AS total_pay_amount
+            FROM ticket_order
+            GROUP BY user_id
+        ) order_stat ON order_stat.user_id = u.user_id
+        LEFT JOIN (
+            SELECT user_id, COUNT(*) AS audience_count FROM audience GROUP BY user_id
+        ) audience_stat ON audience_stat.user_id = u.user_id
+        LEFT JOIN (
+            SELECT user_id, COUNT(*) AS address_count FROM user_address GROUP BY user_id
+        ) address_stat ON address_stat.user_id = u.user_id
+        LEFT JOIN (
+            SELECT user_id, COUNT(*) AS want_count FROM want_record GROUP BY user_id
+        ) want_stat ON want_stat.user_id = u.user_id
+        <include refid="UserWhereSql"/>
+        ORDER BY u.create_time DESC, u.user_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectUserDetail" resultType="com.example.maimaibackend.vo.admin.AdminUserDetailVO">
+        SELECT
+            u.user_id AS userId,
+            u.phone AS phone,
+            u.nickname AS nickname,
+            u.avatar_url AS avatarUrl,
+            u.account_status AS accountStatus,
+            u.create_time AS createTime,
+            u.update_time AS updateTime,
+            IFNULL(order_stat.order_count, 0) AS orderCount,
+            IFNULL(order_stat.paid_order_count, 0) AS paidOrderCount,
+            IFNULL(order_stat.total_pay_amount, 0) AS totalPayAmount
+        FROM user_account u
+        LEFT JOIN (
+            SELECT
+                user_id,
+                COUNT(*) AS order_count,
+                SUM(CASE WHEN order_status IN ('WAIT_USE', 'FINISHED', 'REFUNDING', 'REFUND_SUCCESS') THEN 1 ELSE 0 END) AS paid_order_count,
+                SUM(CASE WHEN pay_time IS NOT NULL THEN pay_amount ELSE 0 END) AS total_pay_amount
+            FROM ticket_order
+            GROUP BY user_id
+        ) order_stat ON order_stat.user_id = u.user_id
+        WHERE u.user_id = #{userId}
+        LIMIT 1
+    </select>
+
+
+
+
+
+    <select id="selectUserWants" resultType="com.example.maimaibackend.vo.admin.AdminUserWantVO">
+        SELECT
+            w.want_id AS wantId,
+            w.project_id AS projectId,
+            p.title AS projectTitle,
+            p.poster_url AS posterUrl,
+            w.want_time AS wantTime
+        FROM want_record w
+        LEFT JOIN performance_project p ON p.project_id = w.project_id
+        WHERE w.user_id = #{userId}
+        ORDER BY w.want_time DESC, w.want_id DESC
+    </select>
+
+    <select id="selectUserStatus" resultType="string">
+        SELECT account_status
+        FROM user_account
+        WHERE user_id = #{userId}
+        LIMIT 1
+    </select>
+
+    <update id="updateUserStatusIfCurrent">
+        UPDATE user_account
+        SET account_status = #{targetStatus},
+            update_time = NOW()
+        WHERE user_id = #{userId}
+          AND account_status = #{currentStatus}
+    </update>
+
+</mapper>

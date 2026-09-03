@@ -1,0 +1,618 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminPerformanceMapper">
+
+    <sql id="ProjectWhereSql">
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND p.title LIKE CONCAT('%', #{keyword}, '%')
+            </if>
+            <if test="categoryId != null">
+                AND p.category_id = #{categoryId}
+            </if>
+            <if test="projectStatus != null and projectStatus != ''">
+                AND p.project_status = #{projectStatus}
+            </if>
+        </where>
+    </sql>
+
+    <sql id="SessionSelectColumns">
+        s.session_id AS sessionId,
+        s.project_id AS projectId,
+        s.city_name AS cityName,
+        s.station_name AS stationName,
+        s.venue_id AS venueId,
+        v.venue_name AS venueName,
+        s.start_time AS startTime,
+        s.end_time AS endTime,
+        s.sale_start_time AS saleStartTime,
+        s.sale_end_time AS saleEndTime,
+        s.issue_offset_hours AS issueOffsetHours,
+        s.session_status AS sessionStatus,
+        s.min_price AS minPrice,
+        s.max_price AS maxPrice,
+        s.limit_per_order AS limitPerOrder,
+        s.delivery_type AS deliveryType,
+        CASE WHEN EXISTS (SELECT 1 FROM ticket_source_session_mapping tssm WHERE tssm.session_id=s.session_id) THEN 1 ELSE 0 END AS sourceManaged,
+        (SELECT tsp.provider_code FROM ticket_source_session_mapping tssm JOIN ticket_source_provider tsp ON tsp.provider_id=tssm.provider_id WHERE tssm.session_id=s.session_id ORDER BY tssm.mapping_id LIMIT 1) AS providerCode,
+        (SELECT tssm.provider_session_id FROM ticket_source_session_mapping tssm WHERE tssm.session_id=s.session_id ORDER BY tssm.mapping_id LIMIT 1) AS providerSessionId,
+        s.station_detail_content AS stationDetailContent,
+        s.create_time AS createTime,
+        s.update_time AS updateTime,
+        IFNULL(sku_stat.sku_count, 0) AS skuCount,
+        CASE
+            WHEN p.project_status &lt;&gt; 'OFFLINE'
+                 AND s.session_status IN ('ON_SALE', 'PRESALE')
+            THEN IFNULL(sku_stat.stock_available_count, 0)
+            ELSE 0
+        END AS stockAvailableCount,
+        IFNULL(sku_stat.sold_count, 0) AS soldCount
+    </sql>
+
+    <sql id="SkuSelectColumns">
+        sku.sku_id AS skuId,
+        sku.project_id AS projectId,
+        sku.session_id AS sessionId,
+        sku.sku_name AS skuName,
+        sku.sku_desc AS skuDesc,
+        sku.price AS price,
+        sku.price_mode AS priceMode,
+        CASE WHEN skm.mapping_id IS NULL THEN 0 ELSE 1 END AS sourceManaged,
+        tsp.provider_code AS providerCode,
+        skm.provider_sku_id AS providerSkuId,
+        skm.provider_sku_name AS providerSkuName,
+        skm.face_price AS providerFacePrice,
+        skm.sale_price AS providerSalePrice,
+        skm.settlement_price AS settlementPrice,
+        skm.mapping_status AS mappingStatus,
+        skm.source_sale_status AS sourceSaleStatus,
+        skm.inventory_mode AS inventoryMode,
+        skm.available_stock_snapshot AS availableStockSnapshot,
+        skm.last_sync_time AS sourceLastSyncTime,
+        sku.stock_available AS stockAvailable,
+        sku.stock_locked AS stockLocked,
+        sku.sold_count AS soldCount,
+        sku.sku_status AS skuStatus,
+        sku.inventory_authority AS inventoryAuthority,
+        sku.sort_order AS sortOrder,
+        sku.version AS version,
+        sku.create_time AS createTime,
+        sku.update_time AS updateTime
+    </sql>
+
+    <select id="countProjectList" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM performance_project p
+        LEFT JOIN category c ON c.category_id = p.category_id
+        <include refid="ProjectWhereSql"/>
+    </select>
+
+    <select id="selectProjectList" resultType="com.example.maimaibackend.vo.admin.AdminProjectItemVO">
+        SELECT
+            p.project_id AS projectId,
+            p.title AS title,
+            p.category_id AS categoryId,
+            c.category_name AS categoryName,
+            p.poster_url AS posterUrl,
+            p.min_price AS minPrice,
+            p.max_price AS maxPrice,
+            p.want_count AS wantCount,
+            p.hot_score AS hotScore,
+            p.project_status AS projectStatus,
+            p.recommend_flag AS recommendFlag,
+            CASE WHEN EXISTS (SELECT 1 FROM ticket_source_project_mapping tpm WHERE tpm.project_id=p.project_id) THEN 1 ELSE 0 END AS sourceManaged,
+            (SELECT tsp.provider_code FROM ticket_source_project_mapping tpm JOIN ticket_source_provider tsp ON tsp.provider_id=tpm.provider_id WHERE tpm.project_id=p.project_id ORDER BY tpm.mapping_id LIMIT 1) AS providerCode,
+            (SELECT tpm.provider_project_id FROM ticket_source_project_mapping tpm WHERE tpm.project_id=p.project_id ORDER BY tpm.mapping_id LIMIT 1) AS providerProjectId,
+            p.publish_time AS publishTime,
+            p.update_time AS updateTime,
+            IFNULL(s_stat.session_count, 0) AS sessionCount,
+            IFNULL(s_stat.on_sale_session_count, 0) AS onSaleSessionCount,
+            CASE
+                WHEN p.project_status &lt;&gt; 'OFFLINE'
+                THEN IFNULL(sku_stat.stock_available_count, 0)
+                ELSE 0
+            END AS stockAvailableCount,
+            IFNULL(sku_stat.sold_count, 0) AS soldCount
+        FROM performance_project p
+        LEFT JOIN category c ON c.category_id = p.category_id
+        LEFT JOIN (
+            SELECT
+                project_id,
+                COUNT(*) AS session_count,
+                SUM(CASE WHEN session_status = 'ON_SALE' THEN 1 ELSE 0 END) AS on_sale_session_count
+            FROM performance_session
+            GROUP BY project_id
+        ) s_stat ON s_stat.project_id = p.project_id
+        LEFT JOIN (
+            SELECT
+                sku.project_id,
+                SUM(CASE WHEN sku.sku_status IN ('ON_SALE', 'PRESALE') THEN sku.stock_available ELSE 0 END) AS stock_available_count,
+                SUM(sku.sold_count) AS sold_count
+            FROM ticket_sku sku
+            JOIN performance_session s ON s.session_id = sku.session_id
+            WHERE s.session_status IN ('ON_SALE', 'PRESALE')
+            GROUP BY sku.project_id
+        ) sku_stat ON sku_stat.project_id = p.project_id
+        <include refid="ProjectWhereSql"/>
+        ORDER BY p.update_time DESC, p.project_id DESC
+        LIMIT #{limit} OFFSET #{offset}
+    </select>
+
+    <select id="selectProjectDetail" resultType="com.example.maimaibackend.vo.admin.AdminProjectDetailVO">
+        SELECT
+            p.project_id AS projectId,
+            p.title AS title,
+            p.category_id AS categoryId,
+            c.category_name AS categoryName,
+            p.poster_url AS posterUrl,
+            p.detail_content AS detailContent,
+            p.min_price AS minPrice,
+            p.max_price AS maxPrice,
+            p.want_count AS wantCount,
+            p.hot_score AS hotScore,
+            p.project_status AS projectStatus,
+            p.recommend_flag AS recommendFlag,
+            CASE WHEN tpm.mapping_id IS NOT NULL THEN 1 ELSE 0 END AS sourceManaged,
+            tsp.provider_code AS providerCode,
+            tpm.provider_project_id AS providerProjectId,
+            COALESCE(mp.source_project_name, tpm.provider_project_name) AS providerProjectName,
+            mp.subtitle AS providerSubtitle,
+            mp.introduction AS providerIntroduction,
+            mp.poster_url AS providerPosterUrl,
+            COALESCE(NULLIF(mp.detail_content, ''), mp.detail_html) AS providerDetailContent,
+            COALESCE(mp.sale_status, tpm.source_sale_status) AS providerSaleStatus,
+            COALESCE(mp.source_status_text, tpm.source_status_text) AS providerStatusText,
+            tpm.mapping_status AS mappingStatus,
+            tpm.last_sync_status AS lastSyncStatus,
+            tpm.last_sync_time AS lastSyncTime,
+            tpm.source_updated_time AS sourceUpdatedTime,
+            tpm.auto_publish_enabled AS autoPublishEnabled,
+            p.publish_time AS publishTime,
+            p.create_time AS createTime,
+            p.update_time AS updateTime
+        FROM performance_project p
+        LEFT JOIN category c ON c.category_id = p.category_id
+        LEFT JOIN ticket_source_project_mapping tpm ON tpm.project_id = p.project_id
+        LEFT JOIN ticket_source_provider tsp ON tsp.provider_id = tpm.provider_id
+        LEFT JOIN mock_ticket_source_project mp ON mp.source_project_id = tpm.provider_project_id AND tsp.provider_code = 'MOCK_DAMAI'
+        WHERE p.project_id = #{projectId}
+        LIMIT 1
+    </select>
+
+    <select id="selectEffectiveProjectServiceTagNames" resultType="java.lang.String">
+        SELECT effective_tags.tag_name
+        FROM (
+            SELECT
+                st.tag_id,
+                st.tag_name,
+                rel.sort_order
+            FROM project_service_tag_rel rel
+            JOIN service_tag st ON st.tag_id = rel.tag_id
+            WHERE rel.project_id = #{projectId}
+              AND st.tag_name NOT IN ('条件退', '不可退')
+
+            UNION ALL
+
+            SELECT
+                st.tag_id,
+                st.tag_name,
+                99 AS sort_order
+            FROM refund_rule rr
+            JOIN service_tag st ON (
+                (rr.refund_type = 'CONDITIONAL_REFUND' AND st.tag_name = '条件退')
+                OR (rr.refund_type = 'NO_REFUND' AND st.tag_name = '不可退')
+            )
+            WHERE rr.project_id = #{projectId}
+        ) effective_tags
+        GROUP BY effective_tags.tag_id, effective_tags.tag_name
+        ORDER BY MIN(effective_tags.sort_order) ASC, effective_tags.tag_id ASC
+    </select>
+
+    <select id="selectEffectiveProjectNoticeTitles" resultType="java.lang.String">
+        SELECT ni.title
+        FROM project_notice_rel rel
+        JOIN notice_item ni ON ni.notice_id = rel.notice_id
+        WHERE rel.project_id = #{projectId}
+        ORDER BY rel.sort_order ASC, rel.rel_id ASC
+    </select>
+
+    <select id="countTicketSourceProjectMapping" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM ticket_source_project_mapping
+        WHERE project_id = #{projectId}
+    </select>
+
+    <select id="countTicketSourceSessionMapping" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM ticket_source_session_mapping
+        WHERE session_id = #{sessionId}
+    </select>
+
+    <select id="countTicketSourceSkuMapping" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM ticket_source_sku_mapping
+        WHERE sku_id = #{skuId}
+    </select>
+
+    <select id="countProjectById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM performance_project WHERE project_id = #{projectId}
+    </select>
+
+    <select id="countCategoryById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM category WHERE category_id = #{categoryId}
+    </select>
+
+    <insert id="insertProject" parameterType="com.example.maimaibackend.dto.admin.AdminProjectSaveDTO"
+            useGeneratedKeys="true" keyProperty="projectId">
+        INSERT INTO performance_project (
+            title, category_id, poster_url, detail_content,
+            min_price, max_price, want_count, hot_score,
+            project_status, recommend_flag, publish_time,
+            create_time, update_time
+        ) VALUES (
+            #{title}, #{categoryId}, #{posterUrl}, #{detailContent},
+            NULL, NULL, 0, #{hotScore},
+            #{projectStatus}, #{recommendFlag}, #{publishTime},
+            NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateProject" parameterType="com.example.maimaibackend.dto.admin.AdminProjectSaveDTO">
+        UPDATE performance_project
+        SET title = #{title},
+            category_id = #{categoryId},
+            poster_url = #{posterUrl},
+            detail_content = #{detailContent},
+            hot_score = #{hotScore},
+            project_status = #{projectStatus},
+            recommend_flag = #{recommendFlag},
+            publish_time = #{publishTime},
+            update_time = NOW()
+        WHERE project_id = #{projectId}
+    </update>
+
+    <update id="updateSourceManagedProjectOperation" parameterType="com.example.maimaibackend.dto.admin.AdminProjectSaveDTO">
+        UPDATE performance_project
+        SET hot_score = #{hotScore},
+            publish_time = #{publishTime},
+            update_time = NOW()
+        WHERE project_id = #{projectId}
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_source_project_mapping tpm
+              WHERE tpm.project_id = #{projectId}
+          )
+    </update>
+
+    <update id="updateProjectStatus">
+        UPDATE performance_project
+        SET
+            <if test="projectStatus != null and projectStatus != ''">
+                project_status = #{projectStatus},
+                publish_time = CASE
+                    WHEN #{projectStatus} &lt;&gt; 'OFFLINE' THEN IFNULL(publish_time, NOW())
+                    ELSE publish_time
+                END,
+            </if>
+            <if test="recommendFlag != null">
+                recommend_flag = #{recommendFlag},
+            </if>
+            update_time = NOW()
+        WHERE project_id = #{projectId}
+    </update>
+
+    <select id="countProjectReadySessions" resultType="java.lang.Integer">
+        SELECT COUNT(DISTINCT s.session_id)
+        FROM performance_session s
+        WHERE s.project_id = #{projectId}
+          AND (
+              (#{projectStatus} = 'ON_SALE'
+                  AND s.session_status = 'ON_SALE'
+                  AND EXISTS (
+                      SELECT 1
+                      FROM ticket_sku sku
+                      WHERE sku.session_id = s.session_id
+                        AND sku.sku_status = 'ON_SALE'
+                        AND sku.stock_available &gt; 0
+                  ))
+              OR
+              (#{projectStatus} = 'COMING_SOON'
+                  AND s.session_status IN ('PRESALE', 'ON_SALE')
+                  AND EXISTS (
+                      SELECT 1
+                      FROM ticket_sku sku
+                      WHERE sku.session_id = s.session_id
+                        AND sku.sku_status IN ('PRESALE', 'ON_SALE')
+                        AND sku.stock_available &gt; 0
+                  ))
+              OR
+              (#{projectStatus} = 'SOLD_OUT'
+                  AND s.session_status IN ('SOLD_OUT', 'ENDED', 'ON_SALE', 'PRESALE')
+                  AND EXISTS (
+                      SELECT 1
+                      FROM ticket_sku sku
+                      WHERE sku.session_id = s.session_id
+                        AND sku.sku_status &lt;&gt; 'OFFLINE'
+                  ))
+          )
+    </select>
+
+    <select id="selectSessionsByProjectId" resultType="com.example.maimaibackend.vo.admin.AdminSessionItemVO">
+        SELECT
+            <include refid="SessionSelectColumns"/>
+        FROM performance_session s
+        JOIN performance_project p ON p.project_id = s.project_id
+        LEFT JOIN venue v ON v.venue_id = s.venue_id
+        LEFT JOIN (
+            SELECT
+                session_id,
+                COUNT(*) AS sku_count,
+                SUM(CASE WHEN sku_status IN ('ON_SALE', 'PRESALE') THEN stock_available ELSE 0 END) AS stock_available_count,
+                SUM(sold_count) AS sold_count
+            FROM ticket_sku
+            GROUP BY session_id
+        ) sku_stat ON sku_stat.session_id = s.session_id
+        WHERE s.project_id = #{projectId}
+        ORDER BY s.start_time ASC, s.session_id ASC
+    </select>
+
+    <select id="selectSessionDetail" resultType="com.example.maimaibackend.vo.admin.AdminSessionItemVO">
+        SELECT
+            <include refid="SessionSelectColumns"/>
+        FROM performance_session s
+        JOIN performance_project p ON p.project_id = s.project_id
+        LEFT JOIN venue v ON v.venue_id = s.venue_id
+        LEFT JOIN (
+            SELECT
+                session_id,
+                COUNT(*) AS sku_count,
+                SUM(CASE WHEN sku_status IN ('ON_SALE', 'PRESALE') THEN stock_available ELSE 0 END) AS stock_available_count,
+                SUM(sold_count) AS sold_count
+            FROM ticket_sku
+            GROUP BY session_id
+        ) sku_stat ON sku_stat.session_id = s.session_id
+        WHERE s.session_id = #{sessionId}
+        LIMIT 1
+    </select>
+
+    <select id="countSessionById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM performance_session WHERE session_id = #{sessionId}
+    </select>
+
+    <select id="selectProjectIdBySessionId" resultType="java.lang.Long">
+        SELECT project_id FROM performance_session WHERE session_id = #{sessionId} LIMIT 1
+    </select>
+
+    <select id="countVenueById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM venue WHERE venue_id = #{venueId}
+    </select>
+
+    <select id="selectVenueCityName" resultType="java.lang.String">
+        SELECT city_name FROM venue WHERE venue_id = #{venueId} LIMIT 1
+    </select>
+
+    <select id="countDuplicateSession" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM performance_session
+        WHERE project_id = #{projectId}
+          AND venue_id = #{venueId}
+          AND start_time = #{startTime}
+        <if test="excludeSessionId != null">
+          AND session_id &lt;&gt; #{excludeSessionId}
+        </if>
+    </select>
+
+    <insert id="insertSession" parameterType="com.example.maimaibackend.dto.admin.AdminSessionSaveDTO"
+            useGeneratedKeys="true" keyProperty="sessionId">
+        INSERT INTO performance_session (
+            project_id, city_name, station_name, venue_id,
+            start_time, end_time, sale_start_time, sale_end_time,
+            issue_offset_hours, session_status, min_price, max_price,
+            limit_per_order, station_detail_content, delivery_type,
+            create_time, update_time
+        ) VALUES (
+            #{projectId}, #{cityName}, #{stationName}, #{venueId},
+            #{startTime}, #{endTime}, #{saleStartTime}, #{saleEndTime},
+            #{issueOffsetHours}, #{sessionStatus}, NULL, NULL,
+            #{limitPerOrder}, #{stationDetailContent}, #{deliveryType},
+            NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateSession" parameterType="com.example.maimaibackend.dto.admin.AdminSessionSaveDTO">
+        UPDATE performance_session
+        SET city_name = #{cityName},
+            station_name = #{stationName},
+            venue_id = #{venueId},
+            start_time = #{startTime},
+            end_time = #{endTime},
+            sale_start_time = #{saleStartTime},
+            sale_end_time = #{saleEndTime},
+            issue_offset_hours = #{issueOffsetHours},
+            session_status = #{sessionStatus},
+            limit_per_order = #{limitPerOrder},
+            station_detail_content = #{stationDetailContent},
+            delivery_type = #{deliveryType},
+            update_time = NOW()
+        WHERE session_id = #{sessionId}
+    </update>
+
+    <update id="updateSessionStatus">
+        UPDATE performance_session
+        SET session_status = #{sessionStatus}, update_time = NOW()
+        WHERE session_id = #{sessionId}
+    </update>
+
+    <select id="countSessionReadySkus" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM ticket_sku
+        WHERE session_id = #{sessionId}
+          AND (
+              (#{sessionStatus} = 'ON_SALE'
+                  AND sku_status = 'ON_SALE'
+                  AND stock_available &gt; 0)
+              OR
+              (#{sessionStatus} = 'PRESALE'
+                  AND sku_status IN ('PRESALE', 'ON_SALE')
+                  AND stock_available &gt; 0)
+              OR
+              (#{sessionStatus} = 'SOLD_OUT'
+                  AND sku_status &lt;&gt; 'OFFLINE')
+          )
+    </select>
+
+    <select id="countOrdersBySessionId" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM ticket_order WHERE session_id = #{sessionId}
+    </select>
+
+    <select id="countSkusBySessionId" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM ticket_sku WHERE session_id = #{sessionId}
+    </select>
+
+    <select id="countBannersBySessionId" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM banner_item WHERE target_session_id = #{sessionId}
+    </select>
+
+    <delete id="deleteSession">
+        DELETE FROM performance_session WHERE session_id = #{sessionId}
+    </delete>
+
+    <select id="selectSkusBySessionId" resultType="com.example.maimaibackend.vo.admin.AdminSkuItemVO">
+        SELECT
+            <include refid="SkuSelectColumns"/>
+        FROM ticket_sku sku
+        LEFT JOIN ticket_source_sku_mapping skm ON skm.sku_id=sku.sku_id
+        LEFT JOIN ticket_source_provider tsp ON tsp.provider_id=skm.provider_id
+        WHERE sku.session_id = #{sessionId}
+        ORDER BY sku.sort_order ASC, sku.sku_id ASC
+    </select>
+
+    <select id="selectSkuDetail" resultType="com.example.maimaibackend.vo.admin.AdminSkuItemVO">
+        SELECT
+            <include refid="SkuSelectColumns"/>
+        FROM ticket_sku sku
+        LEFT JOIN ticket_source_sku_mapping skm ON skm.sku_id=sku.sku_id
+        LEFT JOIN ticket_source_provider tsp ON tsp.provider_id=skm.provider_id
+        WHERE sku.sku_id = #{skuId}
+        LIMIT 1
+    </select>
+
+    <select id="countSkuById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM ticket_sku WHERE sku_id = #{skuId}
+    </select>
+
+    <select id="countDuplicateSkuName" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM ticket_sku
+        WHERE session_id = #{sessionId}
+          AND sku_name = #{skuName}
+        <if test="excludeSkuId != null">
+          AND sku_id &lt;&gt; #{excludeSkuId}
+        </if>
+    </select>
+
+    <insert id="insertSku" parameterType="com.example.maimaibackend.dto.admin.AdminSkuSaveDTO"
+            useGeneratedKeys="true" keyProperty="skuId">
+        INSERT INTO ticket_sku (
+            project_id, session_id, sku_name, sku_desc, price,
+            stock_available, stock_locked, sold_count,
+            sku_status, sort_order, version, create_time, update_time
+        ) VALUES (
+            #{projectId}, #{sessionId}, #{skuName}, #{skuDesc}, #{price},
+            #{stockAvailable}, 0, 0,
+            #{skuStatus}, #{sortOrder}, 0, NOW(), NOW()
+        )
+    </insert>
+
+    <update id="updateSku" parameterType="com.example.maimaibackend.dto.admin.AdminSkuSaveDTO">
+        UPDATE ticket_sku
+        SET sku_name = #{skuName},
+            sku_desc = #{skuDesc},
+            price = #{price},
+            sku_status = #{skuStatus},
+            sort_order = #{sortOrder},
+            version = version + 1,
+            update_time = NOW()
+        WHERE sku_id = #{skuId}
+    </update>
+
+    <update id="updateSkuStatus">
+        UPDATE ticket_sku
+        SET sku_status = #{skuStatus}, update_time = NOW(), version = version + 1
+        WHERE sku_id = #{skuId}
+    </update>
+
+    <update id="updateSkuStock">
+        UPDATE ticket_sku
+        SET stock_available = #{stockAvailable},
+            <if test="skuStatus != null and skuStatus != ''">
+                sku_status = #{skuStatus},
+            </if>
+            update_time = NOW(),
+            version = version + 1
+        WHERE sku_id = #{skuId}
+          AND version = #{version}
+          AND inventory_authority = 'LOCAL_COMPAT'
+    </update>
+
+    <select id="selectTicketSourceSalePrice" resultType="java.math.BigDecimal">
+        SELECT sale_price FROM ticket_source_sku_mapping WHERE sku_id=#{skuId} AND mapping_status='BOUND' ORDER BY mapping_id LIMIT 1
+    </select>
+
+    <update id="updateSourceSkuPlatformPrice">
+        UPDATE ticket_sku
+        SET price=#{price}, price_mode=#{priceMode}, version=version+1, update_time=NOW()
+        WHERE sku_id=#{skuId}
+    </update>
+
+    <select id="countOrderItemsBySkuId" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM order_item WHERE sku_id = #{skuId}
+    </select>
+
+    <delete id="deleteSku">
+        DELETE FROM ticket_sku WHERE sku_id = #{skuId}
+    </delete>
+
+    <update id="refreshSessionPrice">
+        UPDATE performance_session
+        SET min_price = (
+                SELECT MIN(price)
+                FROM ticket_sku
+                WHERE session_id = #{sessionId}
+                  AND sku_status &lt;&gt; 'OFFLINE'
+            ),
+            max_price = (
+                SELECT MAX(price)
+                FROM ticket_sku
+                WHERE session_id = #{sessionId}
+                  AND sku_status &lt;&gt; 'OFFLINE'
+            ),
+            update_time = NOW()
+        WHERE session_id = #{sessionId}
+    </update>
+
+    <update id="refreshProjectPrice">
+        UPDATE performance_project
+        SET min_price = (
+                SELECT MIN(sku.price)
+                FROM ticket_sku sku
+                JOIN performance_session s ON s.session_id = sku.session_id
+                WHERE sku.project_id = #{projectId}
+                  AND sku.sku_status &lt;&gt; 'OFFLINE'
+                  AND s.session_status &lt;&gt; 'OFFLINE'
+            ),
+            max_price = (
+                SELECT MAX(sku.price)
+                FROM ticket_sku sku
+                JOIN performance_session s ON s.session_id = sku.session_id
+                WHERE sku.project_id = #{projectId}
+                  AND sku.sku_status &lt;&gt; 'OFFLINE'
+                  AND s.session_status &lt;&gt; 'OFFLINE'
+            ),
+            update_time = NOW()
+        WHERE project_id = #{projectId}
+    </update>
+
+</mapper>

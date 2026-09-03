@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminNoticeMapper">
+
+    <sql id="NoticeSelectSql">
+        SELECT
+            n.notice_id AS noticeId,
+            n.title AS title,
+            n.description AS description,
+            n.icon_url AS iconUrl,
+            NULL AS sortOrder,
+            IFNULL(project_stat.project_count, 0) AS projectCount
+        FROM notice_item n
+        LEFT JOIN (
+            SELECT notice_id, COUNT(*) AS project_count
+            FROM project_notice_rel
+            GROUP BY notice_id
+        ) project_stat ON project_stat.notice_id = n.notice_id
+    </sql>
+
+    <select id="selectNoticeList" resultType="com.example.maimaibackend.vo.admin.AdminNoticeVO">
+        <include refid="NoticeSelectSql"/>
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (n.title LIKE CONCAT('%', #{keyword}, '%') OR n.description LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY n.notice_id ASC
+    </select>
+
+    <select id="selectNoticeById" resultType="com.example.maimaibackend.vo.admin.AdminNoticeVO">
+        <include refid="NoticeSelectSql"/>
+        WHERE n.notice_id = #{noticeId}
+        LIMIT 1
+    </select>
+
+    <select id="countNoticeById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM notice_item WHERE notice_id = #{noticeId}
+    </select>
+
+    <select id="countDuplicateTitle" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM notice_item
+        WHERE title = #{title}
+        <if test="noticeId != null">
+            AND notice_id != #{noticeId}
+        </if>
+    </select>
+
+    <insert id="insertNotice"
+            parameterType="com.example.maimaibackend.dto.admin.AdminSaveNoticeRequest"
+            useGeneratedKeys="true"
+            keyProperty="noticeId">
+        INSERT INTO notice_item (title, description, icon_url, notice_type)
+        VALUES (#{title}, #{description}, #{iconUrl}, NULL)
+    </insert>
+
+    <update id="updateNotice" parameterType="com.example.maimaibackend.dto.admin.AdminSaveNoticeRequest">
+        UPDATE notice_item
+        SET title = #{title},
+            description = #{description},
+            icon_url = #{iconUrl}
+        WHERE notice_id = #{noticeId}
+    </update>
+
+    <select id="countProjectRelations" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM project_notice_rel WHERE notice_id = #{noticeId}
+    </select>
+
+    <delete id="deleteNotice">
+        DELETE FROM notice_item WHERE notice_id = #{noticeId}
+    </delete>
+
+    <select id="countProjectById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM performance_project WHERE project_id = #{projectId}
+    </select>
+
+    <select id="selectProjectNoticeBase" resultType="com.example.maimaibackend.vo.admin.AdminProjectNoticeConfigVO">
+        SELECT
+            p.project_id AS projectId,
+            p.title AS projectTitle,
+            p.category_id AS categoryId,
+            c.category_name AS categoryName
+        FROM performance_project p
+        JOIN category c ON c.category_id = p.category_id
+        WHERE p.project_id = #{projectId}
+        LIMIT 1
+    </select>
+
+    <select id="selectProjectNotices" resultType="com.example.maimaibackend.vo.admin.AdminNoticeVO">
+        SELECT
+            n.notice_id AS noticeId,
+            n.title AS title,
+            n.description AS description,
+            n.icon_url AS iconUrl,
+            r.sort_order AS sortOrder,
+            NULL AS projectCount
+        FROM project_notice_rel r
+        JOIN notice_item n ON n.notice_id = r.notice_id
+        WHERE r.project_id = #{projectId}
+          AND r.source_provider_id IS NULL
+        ORDER BY r.sort_order ASC, r.rel_id ASC
+    </select>
+
+    <select id="selectProviderProjectNotices" resultType="com.example.maimaibackend.vo.admin.AdminNoticeVO">
+        SELECT
+            n.notice_id AS noticeId,
+            COALESCE(NULLIF(r.title_override, ''), n.title) AS title,
+            COALESCE(NULLIF(r.description_override, ''), n.description) AS description,
+            n.icon_url AS iconUrl,
+            r.sort_order AS sortOrder,
+            NULL AS projectCount
+        FROM project_notice_rel r
+        JOIN notice_item n ON n.notice_id = r.notice_id
+        WHERE r.project_id = #{projectId}
+          AND r.source_provider_id IS NOT NULL
+        ORDER BY r.sort_order ASC, r.rel_id ASC
+    </select>
+
+    <select id="countProviderProjectNoticeRelationsByIds" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM project_notice_rel
+        WHERE project_id = #{projectId}
+          AND source_provider_id IS NOT NULL
+          AND notice_id IN
+        <foreach collection="noticeIds" item="noticeId" open="(" separator="," close=")">
+            #{noticeId}
+        </foreach>
+    </select>
+
+    <delete id="deleteProjectNoticeRelations">
+        DELETE FROM project_notice_rel
+        WHERE project_id = #{projectId}
+          AND source_provider_id IS NULL
+    </delete>
+
+    <insert id="insertProjectNoticeRelations">
+        INSERT INTO project_notice_rel (project_id, notice_id, sort_order)
+        VALUES
+        <foreach collection="items" item="item" separator=",">
+            (#{projectId}, #{item.targetId}, #{item.sortOrder})
+        </foreach>
+    </insert>
+
+    <select id="countNoticesByIds" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM notice_item
+        WHERE notice_id IN
+        <foreach collection="noticeIds" item="noticeId" open="(" separator="," close=")">
+            #{noticeId}
+        </foreach>
+    </select>
+
+</mapper>

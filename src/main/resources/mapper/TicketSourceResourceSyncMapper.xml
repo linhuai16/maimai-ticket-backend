@@ -1,0 +1,694 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.ticketsource.TicketSourceResourceSyncMapper">
+
+    <sql id="ProjectMappingColumns">
+        mapping_id AS mappingId,
+        provider_id AS providerId,
+        project_id AS projectId,
+        provider_project_id AS providerProjectId,
+        provider_project_name AS providerProjectName,
+        mapping_status AS mappingStatus,
+        source_sale_status AS sourceSaleStatus,
+        source_data_version AS sourceDataVersion,
+        auto_publish_enabled AS autoPublishEnabled,
+        last_sync_status AS lastSyncStatus,
+        last_sync_time AS lastSyncTime,
+        last_error_code AS lastErrorCode,
+        last_error_message AS lastErrorMessage,
+        source_payload_snapshot AS sourcePayloadSnapshot,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <sql id="SessionMappingColumns">
+        mapping_id AS mappingId,
+        provider_id AS providerId,
+        project_mapping_id AS projectMappingId,
+        session_id AS sessionId,
+        provider_session_id AS providerSessionId,
+        provider_session_name AS providerSessionName,
+        mapping_status AS mappingStatus,
+        source_sale_status AS sourceSaleStatus,
+        source_data_version AS sourceDataVersion,
+        last_sync_status AS lastSyncStatus,
+        last_sync_time AS lastSyncTime,
+        last_error_code AS lastErrorCode,
+        last_error_message AS lastErrorMessage,
+        source_payload_snapshot AS sourcePayloadSnapshot,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <sql id="SkuMappingColumns">
+        mapping_id AS mappingId,
+        provider_id AS providerId,
+        session_mapping_id AS sessionMappingId,
+        sku_id AS skuId,
+        provider_sku_id AS providerSkuId,
+        provider_sku_name AS providerSkuName,
+        mapping_status AS mappingStatus,
+        source_sale_status AS sourceSaleStatus,
+        inventory_mode AS inventoryMode,
+        available_stock_snapshot AS availableStockSnapshot,
+        face_price AS facePrice,
+        sale_price AS salePrice,
+        settlement_price AS settlementPrice,
+        currency_code AS currencyCode,
+        source_data_version AS sourceDataVersion,
+        last_sync_status AS lastSyncStatus,
+        last_sync_time AS lastSyncTime,
+        last_inventory_sync_time AS lastInventorySyncTime,
+        last_error_code AS lastErrorCode,
+        last_error_message AS lastErrorMessage,
+        source_payload_snapshot AS sourcePayloadSnapshot,
+        create_time AS createTime,
+        update_time AS updateTime
+    </sql>
+
+    <select id="selectCategoryIdByName" resultType="long">
+        SELECT category_id
+        FROM category
+        WHERE category_name = #{categoryName}
+        LIMIT 1
+    </select>
+
+    <select id="selectVenueId" resultType="long">
+        SELECT venue_id
+        FROM venue
+        WHERE city_name = #{cityName}
+          AND venue_name = #{venueName}
+        ORDER BY venue_id ASC
+        LIMIT 1
+    </select>
+
+    <insert id="insertVenue"
+            parameterType="com.example.maimaibackend.ticketsource.sync.model.TicketSourceLocalVenue"
+            useGeneratedKeys="true" keyProperty="venueId">
+        INSERT INTO venue
+        (venue_name, city_name, address, longitude, latitude, create_time, update_time)
+        VALUES
+        (#{venueName}, #{cityName}, #{address}, NULL, NULL, NOW(), NOW())
+    </insert>
+
+    <insert id="insertProject"
+            parameterType="com.example.maimaibackend.ticketsource.sync.model.TicketSourceLocalProject"
+            useGeneratedKeys="true" keyProperty="projectId">
+        INSERT INTO performance_project
+        (title, category_id, poster_url, detail_content, min_price, max_price,
+         want_count, hot_score, project_status, recommend_flag, publish_time, create_time, update_time)
+        VALUES
+        (#{title}, #{categoryId}, #{posterUrl}, #{detailContent}, #{minPrice}, #{maxPrice},
+         0, 0.00, #{projectStatus}, 0, NULL, NOW(), NOW())
+    </insert>
+
+    <update id="updateProjectFromSource">
+        UPDATE performance_project
+        SET title = #{project.title},
+            category_id = #{project.categoryId},
+            poster_url = CASE
+                WHEN #{project.posterUrl} IS NULL OR #{project.posterUrl} = '' THEN poster_url
+                ELSE #{project.posterUrl}
+            END,
+            detail_content = CASE
+                WHEN #{project.detailContent} IS NULL OR #{project.detailContent} = '' THEN detail_content
+                ELSE #{project.detailContent}
+            END,
+            min_price = #{project.minPrice},
+            max_price = #{project.maxPrice},
+            update_time = NOW()
+        WHERE project_id = #{project.projectId}
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_source_project_mapping pm
+              WHERE pm.project_id = #{project.projectId}
+                AND pm.provider_id = #{providerId}
+                AND pm.provider_project_id = #{providerProjectId}
+                AND pm.mapping_status = 'BOUND'
+          )
+    </update>
+
+    <select id="selectProjectStatus" resultType="string">
+        SELECT project_status
+        FROM performance_project
+        WHERE project_id = #{projectId}
+        LIMIT 1
+    </select>
+
+    <insert id="insertSession"
+            parameterType="com.example.maimaibackend.ticketsource.sync.model.TicketSourceLocalSession"
+            useGeneratedKeys="true" keyProperty="sessionId">
+        INSERT INTO performance_session
+        (project_id, city_name, station_name, venue_id, start_time, end_time,
+         sale_start_time, sale_end_time, issue_offset_hours, session_status,
+         min_price, max_price, limit_per_order, station_detail_content, delivery_type,
+         create_time, update_time)
+        VALUES
+        (#{projectId}, #{cityName}, #{stationName}, #{venueId}, #{startTime}, #{endTime},
+         #{saleStartTime}, #{saleEndTime}, NULL, #{sessionStatus},
+         NULL, NULL, #{limitPerOrder}, NULL, #{deliveryType}, NOW(), NOW())
+    </insert>
+
+    <update id="updateSessionFromSource">
+        UPDATE performance_session
+        SET city_name = #{session.cityName},
+            station_name = #{session.stationName},
+            venue_id = #{session.venueId},
+            start_time = #{session.startTime},
+            end_time = #{session.endTime},
+            sale_start_time = #{session.saleStartTime},
+            sale_end_time = #{session.saleEndTime},
+            limit_per_order = #{session.limitPerOrder},
+            delivery_type = #{session.deliveryType},
+            update_time = NOW()
+        WHERE session_id = #{session.sessionId}
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_source_session_mapping sm
+              WHERE sm.session_id = #{session.sessionId}
+                AND sm.provider_id = #{providerId}
+                AND sm.project_mapping_id = #{projectMappingId}
+                AND sm.provider_session_id = #{providerSessionId}
+                AND sm.mapping_status IN ('BOUND', 'PENDING')
+          )
+    </update>
+
+    <insert id="insertSku"
+            parameterType="com.example.maimaibackend.ticketsource.sync.model.TicketSourceLocalSku"
+            useGeneratedKeys="true" keyProperty="skuId">
+        INSERT INTO ticket_sku
+        (project_id, session_id, sku_name, sku_desc, price, price_mode,
+         stock_available, stock_locked, sold_count, sku_status, inventory_authority,
+         sort_order, version, create_time, update_time)
+        VALUES
+        (#{projectId}, #{sessionId}, #{skuName}, #{skuDesc}, #{price}, 'FOLLOW_PROVIDER',
+         #{stockAvailable}, 0, 0, #{skuStatus}, #{inventoryAuthority},
+         #{sortOrder}, 0, NOW(), NOW())
+    </insert>
+
+    <update id="updateSkuFromSource">
+        UPDATE ticket_sku
+        SET sku_name = #{sku.skuName},
+            sku_desc = #{sku.skuDesc},
+            price = CASE WHEN COALESCE(price_mode,'FOLLOW_PROVIDER')='FOLLOW_PROVIDER' THEN #{sku.price} ELSE price END,
+            stock_available = CASE
+                WHEN #{applyStock} = 1 AND #{providerStock} IS NOT NULL
+                    THEN CASE
+                        WHEN #{providerStock} &lt;= stock_locked THEN 0
+                        ELSE #{providerStock} - stock_locked
+                    END
+                ELSE stock_available
+            END,
+            inventory_authority = #{sku.inventoryAuthority},
+            sort_order = #{sku.sortOrder},
+            version = version + 1,
+            update_time = NOW()
+        WHERE sku_id = #{sku.skuId}
+          AND EXISTS (
+              SELECT 1
+              FROM ticket_source_sku_mapping skm
+              WHERE skm.sku_id = #{sku.skuId}
+                AND skm.provider_id = #{providerId}
+                AND skm.session_mapping_id = #{sessionMappingId}
+                AND skm.provider_sku_id = #{providerSkuId}
+                AND skm.mapping_status IN ('BOUND', 'PENDING')
+          )
+    </update>
+
+    <select id="selectProjectMappingByRemote"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceProjectMapping">
+        SELECT <include refid="ProjectMappingColumns"/>
+        FROM ticket_source_project_mapping
+        WHERE provider_id = #{providerId}
+          AND provider_project_id = #{providerProjectId}
+        LIMIT 1
+    </select>
+
+    <select id="selectSessionMappingByRemote"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSessionMapping">
+        SELECT <include refid="SessionMappingColumns"/>
+        FROM ticket_source_session_mapping
+        WHERE provider_id = #{providerId}
+          AND project_mapping_id = #{projectMappingId}
+          AND provider_session_id = #{providerSessionId}
+        LIMIT 1
+    </select>
+
+    <select id="selectSkuMappingByRemote"
+            resultType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSkuMapping">
+        SELECT <include refid="SkuMappingColumns"/>
+        FROM ticket_source_sku_mapping
+        WHERE provider_id = #{providerId}
+          AND session_mapping_id = #{sessionMappingId}
+          AND provider_sku_id = #{providerSkuId}
+        LIMIT 1
+    </select>
+
+    <insert id="insertProjectMapping"
+            parameterType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceProjectMapping"
+            useGeneratedKeys="true" keyProperty="mappingId">
+        INSERT INTO ticket_source_project_mapping
+        (provider_id, project_id, provider_project_id, provider_project_name,
+         mapping_status, source_sale_status, source_data_version, auto_publish_enabled,
+         last_sync_status, last_sync_time, last_error_code, last_error_message,
+         source_payload_snapshot, create_time, update_time)
+        VALUES
+        (#{providerId}, #{projectId}, #{providerProjectId}, #{providerProjectName},
+         #{mappingStatus}, #{sourceSaleStatus}, #{sourceDataVersion}, #{autoPublishEnabled},
+         #{lastSyncStatus}, #{lastSyncTime}, #{lastErrorCode}, #{lastErrorMessage},
+         #{sourcePayloadSnapshot}, NOW(), NOW())
+    </insert>
+
+    <update id="updateProjectMapping"
+            parameterType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceProjectMapping">
+        UPDATE ticket_source_project_mapping
+        SET project_id = #{projectId},
+            provider_project_name = #{providerProjectName},
+            mapping_status = #{mappingStatus},
+            source_sale_status = #{sourceSaleStatus},
+            source_data_version = #{sourceDataVersion},
+            auto_publish_enabled = #{autoPublishEnabled},
+            last_sync_status = #{lastSyncStatus},
+            last_sync_time = #{lastSyncTime},
+            last_error_code = #{lastErrorCode},
+            last_error_message = #{lastErrorMessage},
+            source_payload_snapshot = #{sourcePayloadSnapshot},
+            update_time = NOW()
+        WHERE mapping_id = #{mappingId}
+    </update>
+
+    <insert id="insertSessionMapping"
+            parameterType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSessionMapping"
+            useGeneratedKeys="true" keyProperty="mappingId">
+        INSERT INTO ticket_source_session_mapping
+        (provider_id, project_mapping_id, session_id, provider_session_id, provider_session_name,
+         mapping_status, source_sale_status, source_data_version,
+         last_sync_status, last_sync_time, last_error_code, last_error_message,
+         source_payload_snapshot, create_time, update_time)
+        VALUES
+        (#{providerId}, #{projectMappingId}, #{sessionId}, #{providerSessionId}, #{providerSessionName},
+         #{mappingStatus}, #{sourceSaleStatus}, #{sourceDataVersion},
+         #{lastSyncStatus}, #{lastSyncTime}, #{lastErrorCode}, #{lastErrorMessage},
+         #{sourcePayloadSnapshot}, NOW(), NOW())
+    </insert>
+
+    <update id="updateSessionMapping"
+            parameterType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSessionMapping">
+        UPDATE ticket_source_session_mapping
+        SET session_id = #{sessionId},
+            provider_session_name = #{providerSessionName},
+            mapping_status = #{mappingStatus},
+            source_sale_status = #{sourceSaleStatus},
+            source_data_version = #{sourceDataVersion},
+            last_sync_status = #{lastSyncStatus},
+            last_sync_time = #{lastSyncTime},
+            last_error_code = #{lastErrorCode},
+            last_error_message = #{lastErrorMessage},
+            source_payload_snapshot = #{sourcePayloadSnapshot},
+            update_time = NOW()
+        WHERE mapping_id = #{mappingId}
+    </update>
+
+    <insert id="insertSkuMapping"
+            parameterType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSkuMapping"
+            useGeneratedKeys="true" keyProperty="mappingId">
+        INSERT INTO ticket_source_sku_mapping
+        (provider_id, session_mapping_id, sku_id, provider_sku_id, provider_sku_name,
+         mapping_status, source_sale_status, inventory_mode, available_stock_snapshot,
+         face_price, sale_price, settlement_price, currency_code, source_data_version,
+         last_sync_status, last_sync_time, last_inventory_sync_time,
+         last_error_code, last_error_message, source_payload_snapshot, create_time, update_time)
+        VALUES
+        (#{providerId}, #{sessionMappingId}, #{skuId}, #{providerSkuId}, #{providerSkuName},
+         #{mappingStatus}, #{sourceSaleStatus}, #{inventoryMode}, #{availableStockSnapshot},
+         #{facePrice}, #{salePrice}, #{settlementPrice}, #{currencyCode}, #{sourceDataVersion},
+         #{lastSyncStatus}, #{lastSyncTime}, #{lastInventorySyncTime},
+         #{lastErrorCode}, #{lastErrorMessage}, #{sourcePayloadSnapshot}, NOW(), NOW())
+    </insert>
+
+    <update id="updateSkuMapping"
+            parameterType="com.example.maimaibackend.ticketsource.domain.model.TicketSourceSkuMapping">
+        UPDATE ticket_source_sku_mapping
+        SET sku_id = #{skuId},
+            provider_sku_name = #{providerSkuName},
+            mapping_status = #{mappingStatus},
+            source_sale_status = #{sourceSaleStatus},
+            inventory_mode = #{inventoryMode},
+            available_stock_snapshot = #{availableStockSnapshot},
+            face_price = #{facePrice},
+            sale_price = #{salePrice},
+            settlement_price = #{settlementPrice},
+            currency_code = #{currencyCode},
+            source_data_version = #{sourceDataVersion},
+            last_sync_status = #{lastSyncStatus},
+            last_sync_time = #{lastSyncTime},
+            last_inventory_sync_time = #{lastInventorySyncTime},
+            last_error_code = #{lastErrorCode},
+            last_error_message = #{lastErrorMessage},
+            source_payload_snapshot = #{sourcePayloadSnapshot},
+            update_time = NOW()
+        WHERE mapping_id = #{mappingId}
+    </update>
+
+    <update id="markSkuMappingsPending">
+        UPDATE ticket_source_sku_mapping sku_map
+        JOIN ticket_source_session_mapping session_map
+          ON session_map.mapping_id = sku_map.session_mapping_id
+        SET sku_map.mapping_status = 'PENDING',
+            sku_map.update_time = NOW()
+        WHERE session_map.project_mapping_id = #{projectMappingId}
+    </update>
+
+    <update id="markSessionMappingsPending">
+        UPDATE ticket_source_session_mapping
+        SET mapping_status = 'PENDING',
+            update_time = NOW()
+        WHERE project_mapping_id = #{projectMappingId}
+    </update>
+
+    <update id="offlinePendingLocalSkus">
+        UPDATE ticket_sku local_sku
+        JOIN ticket_source_sku_mapping sku_map ON sku_map.sku_id = local_sku.sku_id
+        JOIN ticket_source_session_mapping session_map ON session_map.mapping_id = sku_map.session_mapping_id
+        SET local_sku.sku_status = 'OFFLINE',
+            local_sku.update_time = NOW()
+        WHERE session_map.project_mapping_id = #{projectMappingId}
+          AND sku_map.mapping_status = 'PENDING'
+    </update>
+
+    <update id="offlinePendingLocalSessions">
+        UPDATE performance_session local_session
+        JOIN ticket_source_session_mapping session_map ON session_map.session_id = local_session.session_id
+        SET local_session.session_status = 'OFFLINE',
+            local_session.update_time = NOW()
+        WHERE session_map.project_mapping_id = #{projectMappingId}
+          AND session_map.mapping_status = 'PENDING'
+    </update>
+
+    <update id="disablePendingSkuMappings">
+        UPDATE ticket_source_sku_mapping sku_map
+        JOIN ticket_source_session_mapping session_map ON session_map.mapping_id = sku_map.session_mapping_id
+        SET sku_map.mapping_status = 'DISABLED',
+            sku_map.source_sale_status = 'OFF_SHELF',
+            sku_map.last_sync_status = 'SUCCESS',
+            sku_map.last_sync_time = NOW(),
+            sku_map.last_error_code = NULL,
+            sku_map.last_error_message = '第三方最新资源列表中已不存在该票档',
+            sku_map.update_time = NOW()
+        WHERE session_map.project_mapping_id = #{projectMappingId}
+          AND sku_map.mapping_status = 'PENDING'
+    </update>
+
+    <update id="disablePendingSessionMappings">
+        UPDATE ticket_source_session_mapping
+        SET mapping_status = 'DISABLED',
+            source_sale_status = 'OFF_SHELF',
+            last_sync_status = 'SUCCESS',
+            last_sync_time = NOW(),
+            last_error_code = NULL,
+            last_error_message = '第三方最新资源列表中已不存在该场次',
+            update_time = NOW()
+        WHERE project_mapping_id = #{projectMappingId}
+          AND mapping_status = 'PENDING'
+    </update>
+
+    <update id="updateProjectSyncFailure">
+        UPDATE ticket_source_project_mapping
+        SET last_sync_status = 'FAILED',
+            last_sync_time = NOW(),
+            last_error_code = #{errorCode},
+            last_error_message = LEFT(#{errorMessage}, 500),
+            update_time = NOW()
+        WHERE mapping_id = #{mappingId}
+    </update>
+
+    <select id="selectMappingSummary"
+            resultType="com.example.maimaibackend.ticketsource.sync.model.TicketSourceMappingSummary">
+        SELECT
+            provider.provider_id AS providerId,
+            provider.provider_code AS providerCode,
+            project_map.mapping_id AS projectMappingId,
+            project_map.project_id AS projectId,
+            project_map.provider_project_id AS providerProjectId,
+            project_map.mapping_status AS mappingStatus,
+            project_map.source_sale_status AS sourceSaleStatus,
+            project_map.auto_publish_enabled AS autoPublishEnabled,
+            local_project.project_status AS localProjectStatus,
+            COUNT(DISTINCT CASE WHEN session_map.mapping_status = 'BOUND' THEN session_map.mapping_id END) AS boundSessionCount,
+            COUNT(DISTINCT CASE WHEN sku_map.mapping_status = 'BOUND' THEN sku_map.mapping_id END) AS boundSkuCount,
+            COUNT(DISTINCT CASE WHEN sku_map.mapping_status = 'BOUND' AND sku_map.inventory_mode = 'SNAPSHOT' THEN sku_map.mapping_id END) AS providerSnapshotSkuCount,
+            COUNT(DISTINCT CASE WHEN sku_map.mapping_status = 'BOUND' AND sku_map.inventory_mode = 'REALTIME_QUERY' THEN sku_map.mapping_id END) AS providerRealtimeSkuCount,
+            project_map.last_sync_time AS lastSyncTime,
+            project_map.last_sync_status AS lastSyncStatus,
+            project_map.last_error_code AS lastErrorCode,
+            project_map.last_error_message AS lastErrorMessage
+        FROM ticket_source_project_mapping project_map
+        JOIN ticket_source_provider provider ON provider.provider_id = project_map.provider_id
+        JOIN performance_project local_project ON local_project.project_id = project_map.project_id
+        LEFT JOIN ticket_source_session_mapping session_map
+          ON session_map.project_mapping_id = project_map.mapping_id
+        LEFT JOIN ticket_source_sku_mapping sku_map
+          ON sku_map.session_mapping_id = session_map.mapping_id
+        WHERE project_map.provider_id = #{providerId}
+          AND project_map.provider_project_id = #{providerProjectId}
+        GROUP BY provider.provider_id, provider.provider_code,
+                 project_map.mapping_id, project_map.project_id, project_map.provider_project_id,
+                 project_map.mapping_status, project_map.source_sale_status,
+                 project_map.auto_publish_enabled, local_project.project_status,
+                 project_map.last_sync_time, project_map.last_sync_status,
+                 project_map.last_error_code, project_map.last_error_message
+        LIMIT 1
+    </select>
+
+    <select id="selectSkuBindingsByProject"
+            resultType="com.example.maimaibackend.ticketsource.sync.model.TicketSourceSkuBinding">
+        SELECT
+            provider.provider_id AS providerId,
+            provider.provider_code AS providerCode,
+            project_map.mapping_id AS projectMappingId,
+            session_map.mapping_id AS sessionMappingId,
+            sku_map.mapping_id AS skuMappingId,
+            project_map.project_id AS projectId,
+            session_map.session_id AS sessionId,
+            sku_map.sku_id AS skuId,
+            project_map.provider_project_id AS providerProjectId,
+            session_map.provider_session_id AS providerSessionId,
+            sku_map.provider_sku_id AS providerSkuId,
+            project_map.auto_publish_enabled AS autoPublishEnabled,
+            local_sku.stock_locked AS stockLocked,
+            local_sku.stock_available AS stockAvailable
+        FROM ticket_source_project_mapping project_map
+        JOIN ticket_source_provider provider ON provider.provider_id = project_map.provider_id
+        JOIN ticket_source_session_mapping session_map
+          ON session_map.project_mapping_id = project_map.mapping_id
+         AND session_map.mapping_status = 'BOUND'
+        JOIN ticket_source_sku_mapping sku_map
+          ON sku_map.session_mapping_id = session_map.mapping_id
+         AND sku_map.mapping_status = 'BOUND'
+        JOIN ticket_sku local_sku ON local_sku.sku_id = sku_map.sku_id
+        WHERE project_map.provider_id = #{providerId}
+          AND project_map.provider_project_id = #{providerProjectId}
+          AND project_map.mapping_status = 'BOUND'
+        ORDER BY session_map.mapping_id ASC, sku_map.mapping_id ASC
+    </select>
+
+    <select id="selectSkuBindingByRemote"
+            resultType="com.example.maimaibackend.ticketsource.sync.model.TicketSourceSkuBinding">
+        SELECT
+            provider.provider_id AS providerId,
+            provider.provider_code AS providerCode,
+            project_map.mapping_id AS projectMappingId,
+            session_map.mapping_id AS sessionMappingId,
+            sku_map.mapping_id AS skuMappingId,
+            project_map.project_id AS projectId,
+            session_map.session_id AS sessionId,
+            sku_map.sku_id AS skuId,
+            project_map.provider_project_id AS providerProjectId,
+            session_map.provider_session_id AS providerSessionId,
+            sku_map.provider_sku_id AS providerSkuId,
+            project_map.auto_publish_enabled AS autoPublishEnabled,
+            local_sku.stock_locked AS stockLocked,
+            local_sku.stock_available AS stockAvailable
+        FROM ticket_source_sku_mapping sku_map
+        JOIN ticket_source_session_mapping session_map ON session_map.mapping_id = sku_map.session_mapping_id
+        JOIN ticket_source_project_mapping project_map ON project_map.mapping_id = session_map.project_mapping_id
+        JOIN ticket_source_provider provider ON provider.provider_id = project_map.provider_id
+        JOIN ticket_sku local_sku ON local_sku.sku_id = sku_map.sku_id
+        WHERE project_map.provider_id = #{providerId}
+          AND sku_map.provider_sku_id = #{providerSkuId}
+          AND project_map.mapping_status = 'BOUND'
+          AND session_map.mapping_status = 'BOUND'
+          AND sku_map.mapping_status = 'BOUND'
+        LIMIT 1
+    </select>
+
+    <update id="updateAutoPublish">
+        UPDATE ticket_source_project_mapping
+        SET auto_publish_enabled = #{enabled},
+            update_time = NOW()
+        WHERE mapping_id = #{projectMappingId}
+          AND mapping_status = 'BOUND'
+    </update>
+
+    <update id="updateSkuMappingInventory">
+        UPDATE ticket_source_sku_mapping
+        SET inventory_mode = #{inventoryMode},
+            available_stock_snapshot = #{availableStock},
+            source_sale_status = #{sourceSaleStatus},
+            source_data_version = #{sourceDataVersion},
+            last_sync_status = 'SUCCESS',
+            last_sync_time = NOW(),
+            last_inventory_sync_time = NOW(),
+            last_error_code = NULL,
+            last_error_message = NULL,
+            source_payload_snapshot = #{sourcePayloadSnapshot},
+            update_time = NOW()
+        WHERE mapping_id = #{skuMappingId}
+          AND mapping_status = 'BOUND'
+    </update>
+
+    <update id="updateSkuInventoryFailure">
+        UPDATE ticket_source_sku_mapping
+        SET last_sync_status = 'FAILED',
+            last_sync_time = NOW(),
+            last_error_code = LEFT(#{errorCode}, 64),
+            last_error_message = LEFT(#{errorMessage}, 500),
+            update_time = NOW()
+        WHERE mapping_id = #{skuMappingId}
+          AND mapping_status = 'BOUND'
+    </update>
+
+    <update id="updateLocalSkuInventoryKnown">
+        UPDATE ticket_sku
+        SET stock_available = CASE
+                WHEN #{providerAvailableStock} &lt;= stock_locked THEN 0
+                ELSE #{providerAvailableStock} - stock_locked
+            END,
+            inventory_authority = #{inventoryAuthority},
+            version = version + 1,
+            update_time = NOW()
+        WHERE sku_id = #{skuId}
+    </update>
+
+    <update id="updateLocalSkuInventoryUnknown">
+        UPDATE ticket_sku
+        SET inventory_authority = #{inventoryAuthority},
+            version = version + 1,
+            update_time = NOW()
+        WHERE sku_id = #{skuId}
+    </update>
+
+    <select id="selectLocalSkuAvailableStock" resultType="int">
+        SELECT stock_available
+        FROM ticket_sku
+        WHERE sku_id = #{skuId}
+        LIMIT 1
+    </select>
+
+    <select id="selectLocalSkuStatus" resultType="string">
+        SELECT sku_status
+        FROM ticket_sku
+        WHERE sku_id = #{skuId}
+        LIMIT 1
+    </select>
+
+    <update id="applyPublishPolicyToSkus">
+        UPDATE ticket_sku local_sku
+        JOIN ticket_source_sku_mapping sku_map ON sku_map.sku_id = local_sku.sku_id
+        JOIN ticket_source_session_mapping session_map ON session_map.mapping_id = sku_map.session_mapping_id
+        JOIN ticket_source_project_mapping project_map ON project_map.mapping_id = session_map.project_mapping_id
+        SET local_sku.sku_status = CASE
+                WHEN project_map.mapping_status != 'BOUND'
+                  OR session_map.mapping_status != 'BOUND'
+                  OR sku_map.mapping_status != 'BOUND' THEN 'OFFLINE'
+                WHEN sku_map.source_sale_status IN ('OFF_SHELF', 'ENDED', 'UNKNOWN') THEN 'OFFLINE'
+                WHEN sku_map.source_sale_status = 'SOLD_OUT' THEN 'SOLD_OUT'
+                <!-- Provider 未返回库存快照（NULL）表示“库存待实时确认”，不能等价为 OFFLINE/SOLD_OUT。
+                     只有快照明确存在且本地可用量 <= 0 时才判定售罄。 -->
+                WHEN sku_map.available_stock_snapshot IS NOT NULL
+                 AND local_sku.stock_available &lt;= 0 THEN 'SOLD_OUT'
+                WHEN sku_map.source_sale_status = 'PRESALE' THEN 'PRESALE'
+                WHEN sku_map.source_sale_status = 'ON_SALE' THEN 'ON_SALE'
+                ELSE 'OFFLINE'
+            END,
+            local_sku.update_time = NOW()
+        WHERE project_map.mapping_id = #{projectMappingId}
+    </update>
+
+    <update id="applyPublishPolicyToSessions">
+        UPDATE performance_session local_session
+        JOIN ticket_source_session_mapping session_map ON session_map.session_id = local_session.session_id
+        JOIN ticket_source_project_mapping project_map ON project_map.mapping_id = session_map.project_mapping_id
+        LEFT JOIN (
+            SELECT
+                sku_map.session_mapping_id,
+                MAX(CASE WHEN local_sku.sku_status = 'ON_SALE' THEN 1 ELSE 0 END) AS has_on_sale,
+                MAX(CASE WHEN local_sku.sku_status = 'PRESALE' THEN 1 ELSE 0 END) AS has_presale,
+                MAX(CASE WHEN local_sku.sku_status = 'SOLD_OUT' THEN 1 ELSE 0 END) AS has_sold_out
+            FROM ticket_source_sku_mapping sku_map
+            JOIN ticket_sku local_sku ON local_sku.sku_id = sku_map.sku_id
+            WHERE sku_map.mapping_status = 'BOUND'
+            GROUP BY sku_map.session_mapping_id
+        ) sku_state ON sku_state.session_mapping_id = session_map.mapping_id
+        SET local_session.session_status = CASE
+                WHEN project_map.mapping_status != 'BOUND' OR session_map.mapping_status != 'BOUND' THEN 'OFFLINE'
+                WHEN session_map.source_sale_status = 'ENDED' THEN 'ENDED'
+                WHEN session_map.source_sale_status IN ('OFF_SHELF', 'UNKNOWN') THEN 'OFFLINE'
+                WHEN COALESCE(sku_state.has_on_sale, 0) = 1 THEN 'ON_SALE'
+                WHEN COALESCE(sku_state.has_presale, 0) = 1 THEN 'PRESALE'
+                WHEN COALESCE(sku_state.has_sold_out, 0) = 1 THEN 'SOLD_OUT'
+                ELSE 'OFFLINE'
+            END,
+            local_session.update_time = NOW()
+        WHERE project_map.mapping_id = #{projectMappingId}
+    </update>
+
+    <update id="refreshSessionPrices">
+        UPDATE performance_session local_session
+        JOIN ticket_source_session_mapping session_map ON session_map.session_id = local_session.session_id
+        SET local_session.min_price = (
+                SELECT MIN(local_sku.price)
+                FROM ticket_source_sku_mapping sku_map
+                JOIN ticket_sku local_sku ON local_sku.sku_id = sku_map.sku_id
+                WHERE sku_map.session_mapping_id = session_map.mapping_id
+                  AND sku_map.mapping_status = 'BOUND'
+            ),
+            local_session.max_price = (
+                SELECT MAX(local_sku.price)
+                FROM ticket_source_sku_mapping sku_map
+                JOIN ticket_sku local_sku ON local_sku.sku_id = sku_map.sku_id
+                WHERE sku_map.session_mapping_id = session_map.mapping_id
+                  AND sku_map.mapping_status = 'BOUND'
+            ),
+            local_session.update_time = NOW()
+        WHERE session_map.project_mapping_id = #{projectMappingId}
+    </update>
+
+    <update id="refreshProjectPrices">
+        UPDATE performance_project local_project
+        JOIN ticket_source_project_mapping project_map ON project_map.project_id = local_project.project_id
+        SET local_project.min_price = (
+                SELECT MIN(local_sku.price)
+                FROM ticket_source_session_mapping session_map
+                JOIN ticket_source_sku_mapping sku_map ON sku_map.session_mapping_id = session_map.mapping_id
+                JOIN ticket_sku local_sku ON local_sku.sku_id = sku_map.sku_id
+                WHERE session_map.project_mapping_id = project_map.mapping_id
+                  AND session_map.mapping_status = 'BOUND'
+                  AND sku_map.mapping_status = 'BOUND'
+            ),
+            local_project.max_price = (
+                SELECT MAX(local_sku.price)
+                FROM ticket_source_session_mapping session_map
+                JOIN ticket_source_sku_mapping sku_map ON sku_map.session_mapping_id = session_map.mapping_id
+                JOIN ticket_sku local_sku ON local_sku.sku_id = sku_map.sku_id
+                WHERE session_map.project_mapping_id = project_map.mapping_id
+                  AND session_map.mapping_status = 'BOUND'
+                  AND sku_map.mapping_status = 'BOUND'
+            ),
+            local_project.update_time = NOW()
+        WHERE project_map.mapping_id = #{projectMappingId}
+    </update>
+
+</mapper>

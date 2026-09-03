@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('服务标签')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content">
+            <section class="page-heading">
+                <div><p class="breadcrumb">运营配置 / 服务标签</p><h2>服务标签管理</h2><p>维护服务标签名称、说明和项目关联。</p></div>
+                <div class="heading-actions"><a class="button button-primary" th:href="@{/admin/operation/service-tags/new}">新增标签</a><a class="button button-secondary" th:href="@{/admin/operation/service-tags/project-config}">项目标签配置</a></div>
+            </section>
+            <section class="panel filter-panel">
+                <form id="serviceTagFilterForm" class="filter-grid operation-filter-grid">
+                    <label class="field compact"><span>关键词</span><input id="serviceTagKeyword" type="search" placeholder="标签名称或说明" maxlength="100"></label>
+                    <div class="filter-actions"><button class="button button-primary" type="submit">查询</button><button class="button button-secondary" id="serviceTagResetButton" type="button">重置</button></div>
+                </form>
+            </section>
+            <section class="panel table-panel">
+                <div class="panel-header table-header"><div><h3>标签字典</h3><p id="serviceTagTotalText">正在读取...</p></div><button class="button button-ghost button-small" id="serviceTagRefreshButton" type="button">刷新</button></div>
+                <div class="table-wrap"><table class="data-table operation-table"><thead><tr><th>标签</th><th>说明</th><th>生效项目</th><th>来源规则</th><th class="align-right">操作</th></tr></thead><tbody id="serviceTagTableBody"><tr><td colspan="5"><div class="table-empty">正在加载服务标签...</div></td></tr></tbody></table></div>
+            </section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/service-tag.js}"></script>
+</body>
+</html>

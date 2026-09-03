@@ -1,0 +1,208 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminServiceTagMapper">
+
+    <sql id="ServiceTagSelectSql">
+        SELECT
+            t.tag_id AS tagId,
+            t.tag_name AS tagName,
+            t.description AS description,
+            NULL AS sortOrder,
+            CASE
+                WHEN t.tag_name IN ('条件退', '不可退') THEN IFNULL(auto_stat.project_count, 0)
+                ELSE IFNULL(rel_stat.project_count, 0)
+            END AS projectCount,
+            IFNULL(rel_stat.project_count, 0) AS manualProjectCount,
+            CASE
+                WHEN t.tag_name IN ('条件退', '不可退') THEN IFNULL(auto_stat.project_count, 0)
+                ELSE 0
+            END AS automaticProjectCount,
+            CASE
+                WHEN t.tag_name IN ('条件退', '不可退') THEN 1
+                ELSE 0
+            END AS systemRefundTag
+        FROM service_tag t
+        LEFT JOIN (
+            SELECT r.tag_id, COUNT(DISTINCT r.project_id) AS project_count
+            FROM project_service_tag_rel r
+            JOIN service_tag rt ON rt.tag_id = r.tag_id
+            WHERE rt.tag_name NOT IN ('条件退', '不可退')
+            GROUP BY r.tag_id
+        ) rel_stat ON rel_stat.tag_id = t.tag_id
+        LEFT JOIN (
+            SELECT x.tag_name, COUNT(DISTINCT x.project_id) AS project_count
+            FROM (
+                SELECT rr.project_id, '条件退' AS tag_name
+                FROM refund_rule rr
+                WHERE rr.refund_type = 'CONDITIONAL_REFUND'
+                UNION ALL
+                SELECT rr.project_id, '不可退' AS tag_name
+                FROM refund_rule rr
+                WHERE rr.refund_type = 'NO_REFUND'
+            ) x
+            GROUP BY x.tag_name
+        ) auto_stat ON auto_stat.tag_name = t.tag_name
+    </sql>
+
+    <select id="selectServiceTagList" resultType="com.example.maimaibackend.vo.admin.AdminServiceTagVO">
+        <include refid="ServiceTagSelectSql"/>
+        <where>
+            <if test="keyword != null and keyword != ''">
+                AND (t.tag_name LIKE CONCAT('%', #{keyword}, '%') OR t.description LIKE CONCAT('%', #{keyword}, '%'))
+            </if>
+        </where>
+        ORDER BY t.tag_id ASC
+    </select>
+
+    <select id="selectServiceTagById" resultType="com.example.maimaibackend.vo.admin.AdminServiceTagVO">
+        <include refid="ServiceTagSelectSql"/>
+        WHERE t.tag_id = #{tagId}
+        LIMIT 1
+    </select>
+
+    <select id="countDuplicateName" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM service_tag
+        WHERE tag_name = #{tagName}
+        <if test="tagId != null">
+            AND tag_id != #{tagId}
+        </if>
+    </select>
+
+    <insert id="insertServiceTag" parameterType="com.example.maimaibackend.dto.admin.AdminSaveServiceTagRequest"
+            useGeneratedKeys="true" keyProperty="tagId">
+        INSERT INTO service_tag (tag_name, description)
+        VALUES (#{tagName}, #{description})
+    </insert>
+
+    <update id="updateServiceTag" parameterType="com.example.maimaibackend.dto.admin.AdminSaveServiceTagRequest">
+        UPDATE service_tag
+        SET tag_name = #{tagName},
+            description = #{description}
+        WHERE tag_id = #{tagId}
+    </update>
+
+    <select id="countProjectRelations" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM project_service_tag_rel WHERE tag_id = #{tagId}
+    </select>
+
+    <select id="countCapabilityRelations" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM service_tag_capability_rel WHERE tag_id = #{tagId}
+    </select>
+
+    <delete id="deleteServiceTag">
+        DELETE FROM service_tag WHERE tag_id = #{tagId}
+    </delete>
+
+    <select id="selectProjectTitle" resultType="java.lang.String">
+        SELECT title FROM performance_project WHERE project_id = #{projectId} LIMIT 1
+    </select>
+
+    <select id="countProjectById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM performance_project WHERE project_id = #{projectId}
+    </select>
+
+    <select id="selectProjectManualTags" resultType="com.example.maimaibackend.vo.admin.AdminServiceTagVO">
+        SELECT
+            t.tag_id AS tagId,
+            t.tag_name AS tagName,
+            t.description AS description,
+            r.sort_order AS sortOrder,
+            NULL AS projectCount,
+            NULL AS manualProjectCount,
+            0 AS automaticProjectCount,
+            0 AS systemRefundTag
+        FROM project_service_tag_rel r
+        JOIN service_tag t ON t.tag_id = r.tag_id
+        WHERE r.project_id = #{projectId}
+          AND r.source_provider_id IS NULL
+          AND t.tag_name NOT IN ('条件退', '不可退')
+        ORDER BY r.sort_order ASC, r.rel_id ASC
+    </select>
+
+    <select id="selectProjectProviderTags" resultType="com.example.maimaibackend.vo.admin.AdminServiceTagVO">
+        SELECT
+            t.tag_id AS tagId,
+            t.tag_name AS tagName,
+            t.description AS description,
+            r.sort_order AS sortOrder,
+            NULL AS projectCount,
+            NULL AS manualProjectCount,
+            1 AS automaticProjectCount,
+            0 AS systemRefundTag
+        FROM project_service_tag_rel r
+        JOIN service_tag t ON t.tag_id = r.tag_id
+        WHERE r.project_id = #{projectId}
+          AND r.source_provider_id IS NOT NULL
+          AND t.tag_name NOT IN ('条件退', '不可退')
+        ORDER BY r.sort_order ASC, r.rel_id ASC
+    </select>
+
+    <select id="selectProjectAutomaticRefundTags" resultType="com.example.maimaibackend.vo.admin.AdminServiceTagVO">
+        SELECT
+            t.tag_id AS tagId,
+            t.tag_name AS tagName,
+            COALESCE(NULLIF(rr.rule_description, ''), t.description) AS description,
+            99 AS sortOrder,
+            NULL AS projectCount,
+            0 AS manualProjectCount,
+            1 AS automaticProjectCount,
+            1 AS systemRefundTag
+        FROM refund_rule rr
+        JOIN service_tag t ON (
+            (rr.refund_type = 'CONDITIONAL_REFUND' AND t.tag_name = '条件退')
+            OR (rr.refund_type = 'NO_REFUND' AND t.tag_name = '不可退')
+        )
+        WHERE rr.project_id = #{projectId}
+    </select>
+
+    <select id="countTagsByIds" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM service_tag
+        WHERE tag_id IN
+        <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+            #{tagId}
+        </foreach>
+    </select>
+
+    <select id="countSystemRefundTagsByIds" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM service_tag
+        WHERE tag_id IN
+        <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+            #{tagId}
+        </foreach>
+          AND tag_name IN ('条件退', '不可退')
+    </select>
+
+    <select id="countProviderTagRelationsByIds" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM project_service_tag_rel
+        WHERE project_id = #{projectId}
+          AND source_provider_id IS NOT NULL
+          AND tag_id IN
+        <foreach collection="tagIds" item="tagId" open="(" separator="," close=")">
+            #{tagId}
+        </foreach>
+    </select>
+
+    <delete id="deleteProjectTagRelations">
+        DELETE FROM project_service_tag_rel
+        WHERE project_id = #{projectId}
+          AND source_provider_id IS NULL
+          AND tag_id NOT IN (
+              SELECT tag_id FROM service_tag WHERE tag_name IN ('条件退', '不可退')
+          )
+    </delete>
+
+    <insert id="insertProjectTagRelations">
+        INSERT INTO project_service_tag_rel (project_id, tag_id, source_provider_id, sort_order)
+        VALUES
+        <foreach collection="items" item="item" separator=",">
+            (#{projectId}, #{item.targetId}, NULL, #{item.sortOrder})
+        </foreach>
+    </insert>
+
+</mapper>

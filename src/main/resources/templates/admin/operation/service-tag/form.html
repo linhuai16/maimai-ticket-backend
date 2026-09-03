@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head(${pageTitle})}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main id="serviceTagFormPage" class="page-content" th:attr="data-mode=${formMode},data-tag-id=${serviceTagId}">
+            <section class="page-heading"><div><p class="breadcrumb">运营配置 / 服务标签 / <span th:text="${formMode == 'edit' ? '编辑' : '新增'}">新增</span></p><h2 th:text="${pageTitle}">新增服务标签</h2><p>维护服务标签名称和说明。</p></div><a class="button button-secondary" th:href="@{/admin/operation/service-tags}">返回列表</a></section>
+            <form id="serviceTagForm" class="field-grid">
+                <section class="panel form-panel">
+                    <div class="panel-header"><div><h3>标签信息</h3></div></div>
+                    <div class="form-section field-grid">
+                        <label class="field"><span>标签名称 *</span><input id="serviceTagName" maxlength="50" required></label>
+                        <label class="field"><span>标签说明 *</span><textarea id="serviceTagDescription" rows="10" required placeholder="填写前台服务标签详情说明"></textarea></label>
+                        <div id="systemTagNotice" class="inline-note warning-note" hidden><strong>系统退款标签</strong><p>条件退和不可退为系统标签，名称不可修改。</p></div>
+                    </div>
+                </section>
+                <div class="sticky-form-actions"><a class="button button-secondary" th:href="@{/admin/operation/service-tags}">取消</a><button class="button button-primary" id="serviceTagSubmitButton" type="submit">保存标签</button></div>
+            </form>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/service-tag.js}"></script>
+</body>
+</html>

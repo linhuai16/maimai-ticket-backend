@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('须知关联配置')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content">
+            <section class="page-heading"><div><p class="breadcrumb">运营配置 / 观演须知 / 关联配置</p><h2>项目级须知配置</h2><p>配置当前演出的观演须知。</p></div><a class="button button-secondary" th:href="@{/admin/operation/notices}">返回须知列表</a></section>
+            <section class="config-layout config-layout-single">
+                <article class="panel config-panel">
+                    <div class="panel-header"><div><h3>项目级须知</h3><p>第三方须知只读，可补充本地须知并调整顺序。</p></div><button class="button button-primary button-small" id="projectNoticeSaveButton" type="button" disabled>保存项目配置</button></div>
+                    <div class="form-section">
+                        <div class="project-selection-card compact-card"><div class="project-selection-copy"><span>当前演出项目</span><strong id="noticeProjectTitle">尚未选择项目</strong><small id="noticeProjectMeta">请选择需要配置观演须知的项目。</small></div><button class="button button-secondary" id="noticeChooseProjectButton" type="button">选择项目</button></div>
+                        <div class="config-subsection"><h4>第三方同步须知（只读）</h4><div id="projectProviderNoticeList" class="ordered-list"><div class="table-empty">请选择项目</div></div></div>
+                        <label class="field"><span>筛选须知</span><input id="projectNoticeKeyword" type="search" placeholder="须知标题" disabled></label>
+                    </div>
+                    <div class="config-dual-list">
+                        <div><h4>可选本地须知</h4><div id="projectNoticeChoiceList" class="choice-list"><div class="table-empty">请选择项目</div></div></div>
+                        <div><h4>本地项目须知顺序</h4><div id="projectNoticeSelectedList" class="ordered-list"><div class="table-empty">暂未配置本地项目须知</div></div></div>
+                    </div>
+                </article>
+            </section>
+        </main>
+    </div>
+</div>
+<div th:replace="~{admin/components/project-selector :: selector}"></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script>
+<script th:src="@{/admin/js/request.js}"></script>
+<script th:src="@{/admin/js/pagination.js}"></script>
+<script th:src="@{/admin/js/project-selector.js}"></script>
+<script th:src="@{/admin/js/notice-config.js}"></script>
+</body>
+</html>

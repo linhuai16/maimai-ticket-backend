@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.example.maimaibackend.mapper.WantMapper">
+
+    <select id="selectWantList" resultType="com.example.maimaibackend.vo.want.WantPerformanceItemVO">
+        SELECT
+            w.want_id AS wantId,
+            w.want_time AS wantTime,
+            p.project_id AS projectId,
+            s.session_id AS sessionId,
+            p.category_id AS categoryId,
+            c.category_name AS categoryName,
+            p.title AS title,
+            p.poster_url AS posterUrl,
+            s.city_name AS cityName,
+            s.station_name AS stationName,
+            v.venue_name AS venueName,
+            s.start_time AS startTime,
+            COALESCE(s.min_price, p.min_price) AS minPrice,
+            COALESCE(s.max_price, p.max_price) AS maxPrice,
+            p.want_count AS wantCount
+        FROM want_record w
+        JOIN performance_project p ON p.project_id = w.project_id
+        JOIN category c ON c.category_id = p.category_id
+        LEFT JOIN performance_session s ON s.session_id = (
+            SELECT s1.session_id
+            FROM performance_session s1
+            WHERE s1.project_id = p.project_id
+            ORDER BY
+                CASE WHEN s1.start_time <![CDATA[>=]]> NOW() THEN 0 ELSE 1 END ASC,
+                CASE WHEN s1.start_time <![CDATA[>=]]> NOW() THEN s1.start_time END ASC,
+                CASE WHEN s1.start_time <![CDATA[<]]> NOW() THEN s1.start_time END DESC,
+                s1.session_id ASC
+            LIMIT 1
+        )
+        LEFT JOIN venue v ON v.venue_id = s.venue_id
+        WHERE w.user_id = #{userId}
+        ORDER BY w.want_time DESC, w.want_id DESC
+    </select>
+
+    <select id="countProjectCanShow" resultType="int">
+        SELECT COUNT(*)
+        FROM performance_project
+        WHERE project_id = #{projectId}
+          AND project_status != 'OFFLINE'
+    </select>
+
+    <insert id="insertWantIfAbsent">
+        INSERT IGNORE INTO want_record
+        (user_id, project_id, want_time)
+        VALUES
+        (#{userId}, #{projectId}, NOW())
+    </insert>
+
+    <delete id="deleteWant">
+        DELETE FROM want_record
+        WHERE user_id = #{userId}
+          AND project_id = #{projectId}
+    </delete>
+
+    <update id="increaseWantCount">
+        UPDATE performance_project
+        SET want_count = want_count + 1,
+            update_time = NOW()
+        WHERE project_id = #{projectId}
+    </update>
+
+    <update id="decreaseWantCount">
+        UPDATE performance_project
+        SET want_count = GREATEST(want_count - 1, 0),
+            update_time = NOW()
+        WHERE project_id = #{projectId}
+    </update>
+
+</mapper>

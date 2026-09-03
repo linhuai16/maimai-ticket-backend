@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="zh-CN" xmlns:th="http://www.thymeleaf.org">
+<head th:replace="~{admin/fragments/head :: head('票凭证监控')}"></head>
+<body>
+<div class="admin-app">
+    <aside th:replace="~{admin/fragments/sidebar :: sidebar(${activeMenu})}"></aside>
+    <div class="admin-main">
+        <header th:replace="~{admin/fragments/header :: header(${pageTitle}, ${adminUser})}"></header>
+        <main class="page-content" id="ticketManagementPage">
+            <section class="page-heading"><div><p class="breadcrumb">票务管理 / 票凭证监控</p><h2>票凭证监控</h2><p>查询电子票、查看票务详情、修改座位、处理单票异常并查看二维码。</p></div><button class="button button-ghost" id="refreshTicketButton" type="button">刷新数据</button></section>
+            <section class="panel filter-panel">
+                <form id="ticketFilterForm" class="filter-grid ticket-filter-grid">
+                    <label class="field compact filter-span-two"><span>关键词</span><input id="ticketKeyword" type="search" placeholder="票号、订单号、手机号、观演人、演出标题"></label>
+                    <label class="field compact"><span>票状态</span><select id="ticketStatus"><option value="">全部状态</option><option value="GENERATING">生成中</option><option value="UNUSED">未使用</option><option value="CHECKED">已检票</option><option value="EXPIRED">已失效</option><option value="ERROR">异常</option></select></label>
+                    <label class="field compact"><span>订单 ID</span><input id="ticketOrderId" type="number" min="1"></label>
+                    <label class="field compact"><span>用户 ID</span><input id="ticketUserId" type="number" min="1"></label>
+                    <label class="field compact"><span>项目 ID</span><input id="ticketProjectId" type="number" min="1"></label>
+                    <label class="field compact"><span>场次 ID</span><input id="ticketSessionId" type="number" min="1"></label>
+                    <label class="field compact"><span>创建开始日期</span><input id="ticketDateFrom" type="date"></label>
+                    <label class="field compact"><span>创建结束日期</span><input id="ticketDateTo" type="date"></label>
+                    <div class="filter-actions"><button class="button button-primary" type="submit">查询</button><button class="button button-secondary" id="resetTicketFilter" type="button">重置</button></div>
+                </form>
+            </section>
+            <section class="panel table-panel">
+                <div class="panel-header table-header"><div><h3>电子票数据</h3><p id="ticketTotalText">正在读取...</p></div></div>
+                <div class="table-wrap"><table class="data-table ticket-table"><thead><tr><th>电子票</th><th>订单 / 用户</th><th>演出 / 场次</th><th>观演人 / 座位</th><th>状态</th><th>时间</th><th class="align-right">操作</th></tr></thead><tbody id="ticketTableBody"><tr><td colspan="7"><div class="table-empty">正在加载...</div></td></tr></tbody></table></div>
+                <div class="table-footer"><label class="page-size-field">每页 <select id="ticketPageSize"><option>10</option><option selected>20</option><option>50</option></select> 条</label><div id="ticketPagination" class="pagination"></div></div>
+            </section>
+        </main>
+    </div>
+</div>
+<div id="ticketDetailModal" class="modal-backdrop" hidden><div class="modal-card modal-xlarge"><div class="modal-header"><div><p class="modal-eyebrow">TICKET DETAIL</p><h3>电子票详情</h3></div><button class="icon-button" data-close-modal="ticketDetailModal" type="button">×</button></div><div class="modal-body" id="ticketDetailContent"></div><div class="modal-footer"><button class="button button-secondary" data-close-modal="ticketDetailModal" type="button">关闭</button></div></div></div>
+<div id="seatModal" class="modal-backdrop" hidden><div class="modal-card modal-small"><form id="seatForm"><div class="modal-header"><h3>修改座位信息</h3><button class="icon-button" data-close-modal="seatModal" type="button">×</button></div><div class="modal-body"><input id="seatTicketId" type="hidden"><label class="field"><span>座位信息</span><input id="seatInfo" maxlength="100" placeholder="留空可清除"></label></div><div class="modal-footer"><button class="button button-secondary" data-close-modal="seatModal" type="button">取消</button><button class="button button-primary" type="submit">保存</button></div></form></div></div>
+<div id="ticketErrorModal" class="modal-backdrop" hidden><div class="modal-card modal-small"><form id="ticketErrorForm"><div class="modal-header"><h3>标记出票异常</h3><button class="icon-button" data-close-modal="ticketErrorModal" type="button">×</button></div><div class="modal-body"><input id="errorTicketId" type="hidden"><label class="field"><span>异常原因</span><textarea id="ticketErrorReason" maxlength="500" rows="4" required></textarea></label></div><div class="modal-footer"><button class="button button-secondary" data-close-modal="ticketErrorModal" type="button">取消</button><button class="button button-primary" type="submit">确认</button></div></form></div></div>
+<div th:replace="~{admin/fragments/feedback :: feedback}"></div>
+<script th:src="@{/admin/js/common.js}"></script><script th:src="@{/admin/js/request.js}"></script><script th:src="@{/admin/js/pagination.js}"></script><script th:src="@{/admin/js/ticket-management.js}"></script>
+</body></html>

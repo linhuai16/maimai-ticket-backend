@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.example.maimaibackend.mapper.admin.AdminCategoryMapper">
+
+    <sql id="CategorySelectSql">
+        SELECT
+            c.category_id AS categoryId,
+            c.category_code AS categoryCode,
+            c.category_name AS categoryName,
+            c.icon_url AS iconUrl,
+            c.sort_order AS sortOrder,
+            IFNULL(project_stat.project_count, 0) AS projectCount
+        FROM category c
+        LEFT JOIN (
+            SELECT category_id, COUNT(*) AS project_count
+            FROM performance_project
+            GROUP BY category_id
+        ) project_stat ON project_stat.category_id = c.category_id
+    </sql>
+
+    <select id="selectCategoryList" resultType="com.example.maimaibackend.vo.admin.AdminCategoryVO">
+        <include refid="CategorySelectSql"/>
+        ORDER BY c.sort_order ASC, c.category_id ASC
+    </select>
+
+    <select id="selectCategoryById" resultType="com.example.maimaibackend.vo.admin.AdminCategoryVO">
+        <include refid="CategorySelectSql"/>
+        WHERE c.category_id = #{categoryId}
+        LIMIT 1
+    </select>
+
+    <select id="countCategoryById" resultType="java.lang.Integer">
+        SELECT COUNT(*) FROM category WHERE category_id = #{categoryId}
+    </select>
+
+    <select id="countDuplicateName" resultType="java.lang.Integer">
+        SELECT COUNT(*)
+        FROM category
+        WHERE category_name = #{categoryName}
+          AND category_id != #{categoryId}
+    </select>
+
+    <update id="updateCategory">
+        UPDATE category
+        SET category_name = #{request.categoryName},
+            icon_url = #{request.iconUrl},
+            sort_order = #{request.sortOrder}
+        WHERE category_id = #{categoryId}
+    </update>
+
+</mapper>
